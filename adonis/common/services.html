@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Services — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Services</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#backend-services">Backend service layer</a></li>
+        <li class="toc__item toc__item--sub"><a href="#service-conventions">Conventions</a></li>
+        <li class="toc__item"><a href="#api-client-services">Webapp API client services</a></li>
+        <li class="toc__item toc__item--sub"><a href="#request-pattern">Request pattern</a></li>
+        <li class="toc__item toc__item--sub"><a href="#user-api-service">UserApiService</a></li>
+        <li class="toc__item toc__item--sub"><a href="#content-api-service">ContentApiService</a></li>
+        <li class="toc__item"><a href="#route-enums">Route enums</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Services</h1>
+        <p class="subtitle">
+          Backend service layer for business logic, and webapp API client services
+          that proxy all data through backend HTTP endpoints.
+        </p>
+        <div class="meta">
+          <span class="tag">adonis</span>
+          <span class="tag">services</span>
+          <span class="tag">api-client</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="backend-services">
+        <h2>Backend service layer</h2>
+        <p>
+          Business logic lives in <code>app/services/</code> — controllers stay thin and delegate to
+          services. Services receive plain data, not <code>HttpContext</code>.
+        </p>
+
+        <h3 id="service-conventions">Conventions</h3>
+        <ul>
+          <li>One service class per domain entity (e.g., <code>UserService</code>).</li>
+          <li>Services are injected via AdonisJS's container — declare them in controller constructors.</li>
+          <li>Use DB transactions in services when multiple model writes must be atomic.</li>
+          <li>Avoid fat controllers — keep controllers to: validate → delegate to service → return response.</li>
+        </ul>
+        <pre data-lang="typescript"><code>// backend/app/services/user_service.ts
+export default class UserService {
+  async alreadyExists(email: string): Promise&lt;boolean&gt; {
+    const user = await User.findBy('email', email)
+    return !!user
+  }
+
+  async create(payload: CreateUserPayload): Promise&lt;User&gt; {
+    return await db.transaction(async (trx) => {
+      const user = await User.create({
+        email: payload.email,
+        password: payload.password,
+        emailVerificationToken: randomBytes(32).toString('hex'),
+      }, { client: trx })
+
+      await Profile.create({ userPublicId: user.publicId }, { client: trx })
+      return user
+    })
+  }
+
+  async generateToken(user: User): Promise&lt;AccessToken&gt; {
+    return await User.accessTokens.create(user)
+  }
+}
+
+// backend/app/controllers/users_controller.ts
+export default class UsersController {
+  constructor(private userService: UserService) {}
+
+  async register({ request, response }: HttpContext) {
+    const payload = await request.validateUsing(createUserValidator)
+    if (await this.userService.alreadyExists(payload.email)) {
+      return response.conflict({ message: 'Email already in use' })
+    }
+    const user = await this.userService.create(payload)
+    const token = await this.userService.generateToken(user)
+    return response.created({ user, token, message: 'Successfully registered user' })
+  }
+}</code></pre>
+      </section>
+
+      <section id="api-client-services">
+        <h2>Webapp API client services</h2>
+        <p>
+          The webapp has no database. All data flows through two service classes in
+          <code>webapp/app/services/api/</code>. Both read <code>BACKEND_API_URL</code>
+          from the environment.
+        </p>
+
+        <h3 id="request-pattern">Request pattern</h3>
+        <p>Both services share a private <code>request&lt;T&gt;()</code> wrapper around <code>fetch</code>:</p>
+        <pre data-lang="typescript"><code>type ApiResponse&lt;T&gt; = { data: T; status: number; ok: boolean }
+
+private async request&lt;T&gt;(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise&lt;ApiResponse&lt;T&gt;&gt; {
+  const url = `${this.baseUrl}${endpoint}`
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(options.headers as Record&lt;string, string&gt;),
+    },
+  })
+  const data = await response.json().catch(() => ({}))
+  return { data: data as T, status: response.status, ok: response.ok }
+}</code></pre>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            On network failure, <code>request()</code> throws — it does not return <code>{ ok: false }</code>.
+            Callers must handle thrown errors separately from HTTP-level failures.
+          </div>
+        </div>
+
+        <h3 id="user-api-service">UserApiService</h3>
+        <p><strong>File:</strong> <code>webapp/app/services/api/user_service.ts</code></p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>createUser(credentials)</code></td><td><code>POST /user/register</code></td><td>—</td><td>Register new user</td></tr>
+              <tr><td><code>loginUser(credentials)</code></td><td><code>POST /user/login</code></td><td>—</td><td>Login, returns token</td></tr>
+              <tr><td><code>logoutUser(token)</code></td><td><code>POST /user/logout</code></td><td>Bearer</td><td>Revoke token</td></tr>
+              <tr><td><code>getUser(token)</code></td><td><code>POST /user/me</code></td><td>Bearer</td><td>Get current user</td></tr>
+              <tr><td><code>updateUser(data, token)</code></td><td><code>POST /user/update</code></td><td>Bearer</td><td>Update password</td></tr>
+              <tr><td><code>updateProfile(data, token)</code></td><td><code>POST /user/profile/update</code></td><td>Bearer</td><td>Update profile fields</td></tr>
+              <tr><td><code>resendVerification(token)</code></td><td><code>POST /user/resend-verification</code></td><td>Bearer</td><td>Resend verification email</td></tr>
+              <tr><td><code>resetPassword(payload)</code></td><td><code>POST /user/reset-password</code></td><td>—</td><td>Execute password reset</td></tr>
+              <tr><td><code>verifyEmail(token)</code></td><td><code>GET /user/verify-email?token=...</code></td><td>—</td><td>Verify email token</td></tr>
+              <tr><td><code>forgotPassword(email)</code></td><td><code>POST /user/forgot-password</code></td><td>—</td><td>Request reset email</td></tr>
+              <tr><td><code>deleteUser(credentials, token)</code></td><td><code>DELETE /user/remove</code></td><td>Bearer</td><td>Delete account</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Authenticated methods pass the OAT cookie value as a Bearer header:</p>
+        <pre data-lang="typescript"><code>headers: { Authorization: `Bearer ${authToken}` }</code></pre>
+
+        <h3 id="content-api-service">ContentApiService</h3>
+        <p><strong>File:</strong> <code>webapp/app/services/api/content_service.ts</code></p>
+        <p>All calls are unauthenticated — content endpoints on the backend are public. Add one method per public collection endpoint your API exposes.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>getAllPosts()</code></td><td><code>GET /posts</code></td><td>List all posts (example)</td></tr>
+              <tr><td><code>getItem(id)</code></td><td><code>GET /items/:id</code></td><td>Get a single item by ID (example)</td></tr>
+              <tr><td><code>getViewerContent(publicId)</code></td><td><code>GET /view/:publicId</code></td><td>Resolve any model by ULID (if using viewer pattern)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>ApiResponse shape</h4>
+        <pre data-lang="typescript"><code>type ApiResponse&lt;T&gt; = { data: T; status: number; ok: boolean }</code></pre>
+      </section>
+
+      <section id="route-enums">
+        <h2>Route enums</h2>
+        <p>
+          Endpoint strings should not be hardcoded in services. Define them in shared enums so route
+          strings stay in sync across services, controllers, and tests:
+        </p>
+        <pre data-lang="typescript"><code>// webapp/common/enums/api_routes.ts
+export enum UsersAuthApiRoutes {
+  REGISTER            = '/user/register',
+  LOGIN               = '/user/login',
+  LOGOUT              = '/user/logout',
+  ME                  = '/user/me',
+  UPDATE              = '/user/update',
+  PROFILE_UPDATE      = '/user/profile/update',
+  RESEND_VERIFICATION = '/user/resend-verification',
+  RESET_PASSWORD      = '/user/reset-password',
+  VERIFY_EMAIL        = '/user/verify-email',
+  FORGOT_PASSWORD     = '/user/forgot-password',
+  REMOVE              = '/user/remove',
+}
+
+// Add project-specific collection routes here:
+export enum ContentApiRoutes {
+  POSTS = '/posts',
+  ITEMS = '/items',
+  VIEW  = '/view',
+}</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

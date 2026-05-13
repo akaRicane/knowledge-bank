@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infrastructure — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout page-layout--full">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Infrastructure</span>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Infrastructure</h1>
+        <p class="subtitle">
+          Project-specific environment configuration, deployment notes, and service wiring.
+        </p>
+        <div class="meta">
+          <span class="tag">config</span>
+          <span class="tag">env</span>
+          <span class="tag">devops</span>
+        </div>
+      </header>
+
+      <section id="placeholder">
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            This theme is <strong>project-specific</strong>. Environment variables, connection strings,
+            hostnames, and deployment targets belong to the project that uses this knowledge bank.
+            Add your project's infrastructure documentation here.
+          </div>
+        </div>
+
+        <h2>What to document here</h2>
+        <ul>
+          <li><strong>Environment variables</strong> — full table of vars, types, example values, and which are required vs optional.</li>
+          <li><strong>Database</strong> — connection name, host, port, migration strategy.</li>
+          <li><strong>CORS</strong> — allowed origins, credentials policy.</li>
+          <li><strong>Security</strong> — CSRF config, HSTS, content security policy.</li>
+          <li><strong>External services</strong> — SMTP provider, CDN, object storage, third-party APIs.</li>
+          <li><strong>Deployment</strong> — how to build, deploy, and roll back.</li>
+        </ul>
+
+        <h2>Framework-level config</h2>
+        <p>
+          Generic framework configuration patterns (AdonisJS <code>config/</code> files, Vite setup, etc.)
+          are documented in the relevant framework theme (e.g. <a href="../adonis/v6/index.html">AdonisJS v6</a>).
+          Document project-specific values here — not the framework defaults.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

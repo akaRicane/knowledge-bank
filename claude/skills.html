@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skills — Claude Tooling — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="index.html">Claude Tooling</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Skills</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#how-skills-work">How skills work</a></li>
+        <li class="toc__item"><a href="#frontend-design">frontend-design</a></li>
+        <li class="toc__item toc__item--sub"><a href="#design-thinking">Design thinking</a></li>
+        <li class="toc__item toc__item--sub"><a href="#aesthetic-dimensions">Aesthetic dimensions</a></li>
+        <li class="toc__item toc__item--sub"><a href="#anti-patterns">Anti-patterns</a></li>
+        <li class="toc__item"><a href="#file-template">File template</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Skills</h1>
+        <p class="subtitle">
+          Skills are invocable specializations registered in <code>.claude/skills/</code>.
+          Each skill gives Claude Code a focused domain perspective for a specific task type.
+        </p>
+        <div class="meta">
+          <span class="tag">skills</span>
+          <span class="tag">claude-code</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="how-skills-work">
+        <h2>How skills work</h2>
+        <p>
+          Skills live in <code>.claude/skills/skill-name/SKILL.md</code>.
+          The user invokes them with <code>/skill-name</code> in the Claude Code chat.
+          Unlike agents (which run as subprocesses), skills inject a specialized system prompt
+          directly into the current conversation.
+        </p>
+        <pre data-lang="text"><code>.claude/
+└── skills/
+    └── frontend-design/
+        └── SKILL.md        ← invoked with /frontend-design</code></pre>
+      </section>
+
+      <section id="frontend-design">
+        <h2>frontend-design</h2>
+        <p>
+          Creates distinctive, production-grade frontend interfaces with high design quality.
+          Use when building web components, pages, or applications where visual design matters.
+        </p>
+        <p>
+          <strong>Core philosophy:</strong> Avoids generic "AI slop" aesthetics.
+          Generates creative, polished code that is context-specific and memorable.
+          Every interface has a reason to look the way it does.
+        </p>
+
+        <h3 id="design-thinking">Design thinking process</h3>
+        <p>Before writing any code, answer four questions:</p>
+        <ol>
+          <li><strong>Purpose</strong> — What problem does this interface solve? Who uses it?</li>
+          <li>
+            <strong>Tone</strong> — Pick an extreme aesthetic and commit to it:
+            brutally minimal, maximalist, retro-futuristic, organic, luxury, playful,
+            editorial, brutalist, art deco, soft/pastel, industrial, etc.
+          </li>
+          <li><strong>Constraints</strong> — What are the technical requirements?</li>
+          <li><strong>Differentiation</strong> — What makes this interface unforgettable?</li>
+        </ol>
+
+        <h3 id="aesthetic-dimensions">5 aesthetic dimensions</h3>
+
+        <h4>1. Typography</h4>
+        <ul>
+          <li>Choose distinctive fonts — not generic ones (no Arial, Inter, system-ui).</li>
+          <li>Pair a distinctive display font with a refined body font.</li>
+          <li>Avoid overused choices (Space Grotesk, etc.).</li>
+        </ul>
+
+        <h4>2. Color &amp; theme</h4>
+        <ul>
+          <li>Commit to a cohesive aesthetic — use CSS custom properties.</li>
+          <li>Dominant colors with sharp accents beat timid, evenly-distributed palettes.</li>
+          <li>Avoid clichéd color schemes (purple gradients on white, etc.).</li>
+        </ul>
+
+        <h4>3. Motion</h4>
+        <ul>
+          <li>Animations for effects and micro-interactions.</li>
+          <li>CSS-only for HTML; Motion library for React.</li>
+          <li>Focus on high-impact moments: page load staggered reveals, hover surprises.</li>
+          <li>Scroll-triggering where appropriate.</li>
+        </ul>
+
+        <h4>4. Spatial composition</h4>
+        <ul>
+          <li>Unexpected layouts — asymmetry, overlap, diagonal flow.</li>
+          <li>Grid-breaking elements.</li>
+          <li>Generous negative space OR controlled density — pick one and commit.</li>
+        </ul>
+
+        <h4>5. Backgrounds &amp; visual details</h4>
+        <ul>
+          <li>Atmosphere and depth, not flat solid colors.</li>
+          <li>Contextual effects: gradient meshes, noise, patterns, layered transparencies.</li>
+          <li>Dramatic shadows, decorative borders, grain overlays.</li>
+        </ul>
+
+        <h3 id="anti-patterns">Anti-patterns to never use</h3>
+        <ul>
+          <li>Overused font families: Inter, Roboto, Arial, system fonts.</li>
+          <li>Clichéd color schemes: purple gradient on white, hero with a blue button.</li>
+          <li>Predictable layouts: hero → features → CTA → footer.</li>
+          <li>Cookie-cutter components with no context-specific character.</li>
+        </ul>
+
+        <div class="callout callout--tip">
+          <span class="callout__icon">✦</span>
+          <div>
+            Match implementation complexity to vision. Maximalist designs need elaborate code.
+            Minimalist/refined designs need restraint and precision — not less effort, different effort.
+          </div>
+        </div>
+      </section>
+
+      <section id="file-template">
+        <h2>Skill file template</h2>
+        <p>Place in <code>.claude/skills/my-skill/SKILL.md</code>:</p>
+        <pre data-lang="markdown"><code>---
+name: my-skill
+description: One-line description of what this skill does and when to use it.
+---
+
+# My Skill
+
+## When to invoke
+Describe the trigger conditions: what kind of task the user is doing
+that makes this skill relevant.
+
+## Process
+Describe how Claude Code should approach the task differently with this skill active.
+What questions to ask first, what principles to apply, what to avoid.
+
+## Output
+Describe what the skill should produce — code, analysis, questions, etc.</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

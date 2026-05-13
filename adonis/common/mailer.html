@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mailer — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Mailer</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#package">Package &amp; registration</a></li>
+        <li class="toc__item"><a href="#configuration">Configuration</a></li>
+        <li class="toc__item toc__item--sub"><a href="#transport-notes">Transport notes</a></li>
+        <li class="toc__item"><a href="#env-vars">Environment variables</a></li>
+        <li class="toc__item toc__item--sub"><a href="#alias-pattern">Alias pattern</a></li>
+        <li class="toc__item toc__item--sub"><a href="#dotenv-special-chars">dotenv special chars</a></li>
+        <li class="toc__item"><a href="#sending">Sending mail</a></li>
+        <li class="toc__item"><a href="#mock-system">MAILER_MOCK system</a></li>
+        <li class="toc__item toc__item--sub"><a href="#mock-flow">Mock flow</a></li>
+        <li class="toc__item"><a href="#tests">Tests</a></li>
+        <li class="toc__item toc__item--sub"><a href="#fake-vs-mails">fake.messages vs fake.mails</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Mailer</h1>
+        <p class="subtitle">
+          SMTP-based transactional email via <code>@adonisjs/mail</code>. Covers configuration,
+          the MAILER_MOCK interception system, and test patterns.
+        </p>
+        <div class="meta">
+          <span class="tag">adonis</span>
+          <span class="tag">smtp</span>
+          <span class="tag">testing</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="package">
+        <h2>Package &amp; registration</h2>
+        <pre data-lang="text"><code>@adonisjs/mail ^9.2.2</code></pre>
+        <p>Register in <code>adonisrc.ts</code>:</p>
+        <pre data-lang="typescript"><code>commands: [() => import('@adonisjs/mail/commands')],
+providers: [() => import('@adonisjs/mail/mail_provider')],</code></pre>
+      </section>
+
+      <section id="configuration">
+        <h2>Configuration</h2>
+        <p><strong>File:</strong> <code>backend/config/mail.ts</code></p>
+        <pre data-lang="typescript"><code>import env from '#start/env'
+import { defineConfig, transports } from '@adonisjs/mail'
+
+const mailConfig = defineConfig({
+  default: 'smtp',
+
+  from: {
+    address: env.get('MAIL_FROM_ADDRESS'),
+    name:    env.get('MAIL_FROM_NAME'),
+  },
+
+  mailers: {
+    smtp: transports.smtp({
+      host:       env.get('MAIL_HOST'),
+      port:       env.get('MAIL_PORT'),
+      secure:     false,
+      requireTLS: true,   // STARTTLS on port 587
+      auth: {
+        type: 'login',
+        user: env.get('MAIL_USERNAME'),
+        pass: env.get('MAIL_PASSWORD'),
+      },
+    }),
+  },
+})
+
+export default mailConfig
+
+declare module '@adonisjs/mail/types' {
+  export interface MailersList extends InferMailers&lt;typeof mailConfig&gt; {}
+}</code></pre>
+
+        <h3 id="transport-notes">Key transport notes</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Setting</th><th>Value</th><th>Reason</th></tr></thead>
+            <tbody>
+              <tr><td><code>secure</code></td><td><code>false</code></td><td>Port 587 starts as plain then upgrades</td></tr>
+              <tr><td><code>requireTLS</code></td><td><code>true</code></td><td>Forces STARTTLS upgrade on port 587</td></tr>
+              <tr><td><code>auth.type</code></td><td><code>'login'</code></td><td>Standard SMTP LOGIN mechanism</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="env-vars">
+        <h2>Environment variables</h2>
+        <p>All variables are required — no optional fallbacks. Defined in <code>backend/start/env.ts</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Variable</th><th>Example</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>MAIL_HOST</code></td><td><code>mail.example.com</code></td><td>SMTP server hostname</td></tr>
+              <tr><td><code>MAIL_PORT</code></td><td><code>587</code></td><td>SMTP port (STARTTLS)</td></tr>
+              <tr><td><code>MAIL_USERNAME</code></td><td><code>admin@example.com</code></td><td>SMTP authentication account</td></tr>
+              <tr><td><code>MAIL_PASSWORD</code></td><td><code>...</code></td><td>Password for SMTP account</td></tr>
+              <tr><td><code>MAIL_FROM_ADDRESS</code></td><td><code>app@example.com</code></td><td><code>From</code> address shown to recipients</td></tr>
+              <tr><td><code>MAIL_FROM_NAME</code></td><td><code>MyApp</code></td><td>Display name shown to recipients</td></tr>
+              <tr><td><code>MAILER_MOCK</code></td><td><code>true</code></td><td>Intercept all mail in tests (see below)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="alias-pattern">Alias pattern</h3>
+        <p>
+          Authenticate with one address (<code>MAIL_USERNAME</code>) but send from another
+          (<code>MAIL_FROM_ADDRESS</code>). This is standard SMTP alias behaviour — the receiving
+          server sees the <code>From</code> address, while the SMTP session uses the auth account.
+        </p>
+
+        <h3 id="dotenv-special-chars">dotenv special characters in passwords</h3>
+        <p>SMTP passwords may contain <code>#</code> and <code>$</code>. Both require special handling:</p>
+        <ul>
+          <li><code>#</code> is treated as a comment delimiter — the value <strong>must</strong> be quoted.</li>
+          <li><code>$</code> is subject to variable interpolation inside double quotes — escape it as <code>\$</code>.</li>
+        </ul>
+        <pre data-lang="dotenv"><code>MAIL_PASSWORD="my#password\$with-special-chars"</code></pre>
+      </section>
+
+      <section id="sending">
+        <h2>Sending mail</h2>
+        <pre data-lang="typescript"><code>import mail from '@adonisjs/mail/services/main'
+
+// Callback-based (raw message)
+await mail.send((message) => {
+  message
+    .to('user@example.com')
+    .subject('Welcome')
+    .html('&lt;p&gt;Hello!&lt;/p&gt;')
+})
+
+// Class-based (recommended for complex mails with templates)
+await mail.send(new WelcomeMail(user))</code></pre>
+        <p>The global <code>from</code> address from <code>config/mail.ts</code> is applied automatically. Override per-message with <code>.from()</code> if needed.</p>
+      </section>
+
+      <section id="mock-system">
+        <h2>MAILER_MOCK system</h2>
+        <p>
+          Without mocking, every test run that touches any auth flow would send real emails.
+          <code>MAILER_MOCK=true</code> prevents this globally via a 3-layer interception system.
+        </p>
+
+        <h3>Layer 1 — Boot-time interception (<code>start/mailer.ts</code>)</h3>
+        <pre data-lang="typescript"><code>import env from '#start/env'
+import mail from '@adonisjs/mail/services/main'
+
+if (env.get('MAILER_MOCK')) {
+  mail.fake()
+}</code></pre>
+        <p>Runs at every app boot. Ensures the fake is active even when the server starts for webapp tests.</p>
+
+        <h3>Layer 2 — Global teardown (<code>tests/bootstrap.ts</code>)</h3>
+        <pre data-lang="typescript"><code>export const runnerHooks = {
+  setup: [
+    async () => {
+      if (process.env.MAILER_MOCK === 'true') {
+        mail.fake()  // harmless if already faked
+      }
+    },
+  ],
+  teardown: [
+    async () => {
+      mail.restore()  // reset transport after all tests
+    },
+  ],
+}</code></pre>
+
+        <h3>Layer 3 — Per-test reset</h3>
+        <pre data-lang="typescript"><code>test.group('My group', (group) => {
+  let fake: ReturnType&lt;typeof mail.fake&gt;
+
+  group.each.setup(() => {
+    fake = mail.fake()  // new FakeMailer with empty message list
+  })
+
+  test('sends a welcome email', async () => {
+    // ... trigger code that sends email ...
+    fake.messages.assertSent({ to: 'user@example.com', subject: 'Welcome' })
+  })
+})</code></pre>
+        <p>
+          Calling <code>mail.fake()</code> inside a test group returns a <strong>fresh</strong>
+          <code>FakeMailer</code> instance with an empty messages list, giving each test a clean slate.
+        </p>
+
+        <h3 id="mock-flow">Full mock flow</h3>
+        <pre data-lang="text"><code>MAILER_MOCK=true
+      │
+      ▼
+start/mailer.ts → mail.fake()          ← active at boot, any context
+      │
+      ▼
+bootstrap setup → mail.fake()          ← re-faked (no-op)
+      │
+      ▼
+group.each.setup → fake = mail.fake()  ← new FakeMailer, clean slate
+      │
+      ▼
+test → mail.send(...)                  ← captured, not sent
+      │
+      ▼
+assertion → fake.messages.assertSent()
+      │
+      ▼
+bootstrap teardown → mail.restore()    ← real transport restored</code></pre>
+      </section>
+
+      <section id="tests">
+        <h2>Tests</h2>
+
+        <h3 id="fake-vs-mails">fake.messages vs fake.mails</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Collection</th><th>Used for</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>fake.messages</code></td>
+                <td>Raw callback sends: <code>mail.send((msg) =&gt; ...)</code></td>
+              </tr>
+              <tr>
+                <td><code>fake.mails</code></td>
+                <td>Class-based sends: <code>mail.send(new WelcomeMail())</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <pre data-lang="typescript"><code>fake.messages.assertSent({ to: 'user@example.com', subject: 'Hello' })
+fake.messages.assertSentCount(2)
+fake.messages.assertNoneSent()</code></pre>
+
+        <h3>Smoke test (real SMTP)</h3>
+        <p>
+          Create a separate test group that skips when <code>MAILER_MOCK=true</code>.
+          This allows verifying the live SMTP connection without it running on every CI pass:
+        </p>
+        <pre data-lang="typescript"><code>test.group('Mailer - real SMTP (smoke)', () => {
+  test('sends a real email', async ({ assert }) => {
+    if (process.env.MAILER_MOCK === 'true') {
+      assert.isTrue(true, 'Skipped: MAILER_MOCK=true')
+      return
+    }
+    await mail.send((message) => {
+      message.to('your@email.com').subject('Smoke test').html('OK')
+    })
+  }).tags(['smoke'])
+})</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

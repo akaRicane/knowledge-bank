@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hooks — Claude Tooling — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="index.html">Claude Tooling</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Hooks</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#how-hooks-work">How hooks work</a></li>
+        <li class="toc__item"><a href="#hook-types">Hook types</a></li>
+        <li class="toc__item"><a href="#security-reminder">security_reminder_hook</a></li>
+        <li class="toc__item toc__item--sub"><a href="#patterns-checked">Patterns checked</a></li>
+        <li class="toc__item toc__item--sub"><a href="#session-dedup">Session deduplication</a></li>
+        <li class="toc__item toc__item--sub"><a href="#custom-patterns">Adding custom patterns</a></li>
+        <li class="toc__item"><a href="#registration">Registering in settings.json</a></li>
+        <li class="toc__item"><a href="#writing-hooks">Writing custom hooks</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Hooks</h1>
+        <p class="subtitle">
+          Shell scripts or Python scripts that Claude Code executes automatically
+          in response to tool use events. Used for security reminders, linting,
+          and custom enforcement.
+        </p>
+        <div class="meta">
+          <span class="tag">hooks</span>
+          <span class="tag">claude-code</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="how-hooks-work">
+        <h2>How hooks work</h2>
+        <p>
+          Hooks are scripts registered in <code>.claude/settings.json</code> under a
+          <code>"hooks"</code> key. Claude Code runs them automatically when matching
+          tool events occur. The script's exit code controls whether the tool use proceeds:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Exit code</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td><code>0</code></td><td>Allow — tool use proceeds normally</td></tr>
+              <tr><td><code>2</code></td><td>Block — tool use is cancelled; stdout is shown to the user</td></tr>
+              <tr><td>any other</td><td>Warning — tool use proceeds but stdout is shown as a warning</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Hooks receive context about the tool call (file path, content being written, tool name)
+          via environment variables or stdin, depending on the hook type.
+        </p>
+      </section>
+
+      <section id="hook-types">
+        <h2>Hook types</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Hook type</th><th>When it runs</th></tr></thead>
+            <tbody>
+              <tr><td><code>PreToolUse</code></td><td>Before a tool call executes — can block it</td></tr>
+              <tr><td><code>PostToolUse</code></td><td>After a tool call completes</td></tr>
+              <tr><td><code>Notification</code></td><td>When Claude Code sends a notification to the user</td></tr>
+              <tr><td><code>Stop</code></td><td>When Claude Code finishes its turn</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Each hook type can have a <code>matcher</code> to filter which tool names trigger it (e.g. <code>"Edit|Write|MultiEdit"</code>).</p>
+      </section>
+
+      <section id="security-reminder">
+        <h2>security_reminder_hook</h2>
+        <p>
+          A <code>PreToolUse</code> hook that runs before every <code>Edit</code>, <code>Write</code>,
+          or <code>MultiEdit</code> tool call. It scans the file path and content being written
+          for known security anti-patterns and warns (or blocks) when one is found.
+        </p>
+        <p><strong>File:</strong> <code>.claude/hooks/security_reminder_hook.py</code></p>
+
+        <h3 id="patterns-checked">Patterns checked</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pattern</th><th>Risk</th></tr></thead>
+            <tbody>
+              <tr><td>GitHub Actions <code>github.event.*</code> inputs in run steps</td><td>Command injection via untrusted workflow inputs</td></tr>
+              <tr><td><code>child_process.exec()</code></td><td>Command injection — use <code>execFile</code> or a safe wrapper instead</td></tr>
+              <tr><td><code>new Function(...)</code></td><td>Code injection</td></tr>
+              <tr><td><code>eval(...)</code></td><td>Arbitrary code execution</td></tr>
+              <tr><td><code>dangerouslySetInnerHTML</code></td><td>XSS in React</td></tr>
+              <tr><td><code>document.write()</code></td><td>XSS via document.write</td></tr>
+              <tr><td><code>innerHTML =</code></td><td>XSS via innerHTML with untrusted content</td></tr>
+              <tr><td><code>pickle.loads()</code></td><td>Deserialization attack (Python)</td></tr>
+              <tr><td><code>os.system()</code></td><td>Command injection (Python)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="session-dedup">Session deduplication</h3>
+        <p>
+          Each warning is shown <strong>at most once per session</strong>. The hook writes a
+          session state file to a temp directory. If a pattern has already been warned about
+          in the current session, the hook exits <code>0</code> (allow) silently instead of
+          warning again. State files older than 30 days are cleaned up automatically.
+        </p>
+        <p>Disable with: <code>ENABLE_SECURITY_REMINDER=0</code> environment variable.</p>
+
+        <h3 id="custom-patterns">Adding custom patterns</h3>
+        <p>Patterns are defined as a list of tuples in the hook script:</p>
+        <pre data-lang="python"><code>SECURITY_PATTERNS = [
+    # (regex_pattern, warning_key, warning_message)
+    (
+        r'child_process\.exec\(',
+        'child_process_exec',
+        "⚠ child_process.exec() detected — vulnerable to command injection.\n"
+        "Use execFile() or a safe wrapper that avoids shell interpretation.",
+    ),
+    # Add your own patterns here:
+    (
+        r'my_dangerous_function\(',
+        'my_dangerous_function',
+        "⚠ my_dangerous_function() detected — explain the risk here.",
+    ),
+]</code></pre>
+
+        <h3>Full hook structure</h3>
+        <pre data-lang="python"><code>#!/usr/bin/env python3
+"""Pre-tool-use security reminder hook for Claude Code."""
+
+import json, os, sys, re, hashlib, time
+from pathlib import Path
+
+ENABLE = os.environ.get('ENABLE_SECURITY_REMINDER', '1') != '0'
+SESSION_ID = os.environ.get('CLAUDE_SESSION_ID', 'default')
+
+SECURITY_PATTERNS = [
+    # (regex, key, message)
+    (r'eval\(', 'eval', "⚠ eval() detected — arbitrary code execution risk."),
+    # ... more patterns ...
+]
+
+def get_state_file() -> Path:
+    state_dir = Path('/tmp/claude_security_hook')
+    state_dir.mkdir(exist_ok=True)
+    session_hash = hashlib.md5(SESSION_ID.encode()).hexdigest()[:8]
+    return state_dir / f'session_{session_hash}.json'
+
+def load_state() -> set:
+    f = get_state_file()
+    if f.exists():
+        try:
+            return set(json.loads(f.read_text()).get('shown', []))
+        except Exception:
+            return set()
+    return set()
+
+def save_state(shown: set):
+    get_state_file().write_text(json.dumps({'shown': list(shown), 'ts': time.time()}))
+
+def main():
+    if not ENABLE:
+        sys.exit(0)
+
+    try:
+        tool_input = json.loads(sys.stdin.read())
+    except Exception:
+        sys.exit(0)
+
+    content = tool_input.get('content', '') + tool_input.get('file_path', '')
+    shown = load_state()
+    warnings = []
+
+    for pattern, key, message in SECURITY_PATTERNS:
+        if key not in shown and re.search(pattern, content):
+            warnings.append((key, message))
+
+    if warnings:
+        for key, message in warnings:
+            shown.add(key)
+            print(message)
+        save_state(shown)
+        sys.exit(2)  # block tool use
+
+    sys.exit(0)
+
+if __name__ == '__main__':
+    main()</code></pre>
+      </section>
+
+      <section id="registration">
+        <h2>Registering in settings.json</h2>
+        <pre data-lang="json"><code>{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security_reminder_hook.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Claude finished.' | terminal-notifier -title 'Claude Code'"
+          }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            Use relative paths (<code>.claude/hooks/...</code>) so the hook works from any
+            machine that checks out the repo. Absolute paths break on other machines.
+          </div>
+        </div>
+      </section>
+
+      <section id="writing-hooks">
+        <h2>Writing custom hooks</h2>
+        <ul>
+          <li>Hooks can be Python, shell, or any executable script.</li>
+          <li>Read tool context from <code>stdin</code> as JSON — the shape depends on the tool.</li>
+          <li>Print messages to <code>stdout</code> — they are shown to the user.</li>
+          <li>Exit <code>0</code> to allow, <code>2</code> to block.</li>
+          <li>Keep hooks fast — they run on every matching tool call.</li>
+          <li>Use session-state files in <code>/tmp/</code> to avoid repeated warnings.</li>
+        </ul>
+
+        <h3>Minimal hook example</h3>
+        <pre data-lang="python"><code>#!/usr/bin/env python3
+"""Block writes to files matching a pattern."""
+import json, sys
+
+tool_input = json.loads(sys.stdin.read())
+file_path = tool_input.get('file_path', '')
+
+if '.env.production' in file_path:
+    print("⚠ Blocked: do not overwrite .env.production directly.")
+    sys.exit(2)
+
+sys.exit(0)</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents — Claude Tooling — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="index.html">Claude Tooling</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Agents</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#overview">Overview</a></li>
+        <li class="toc__item"><a href="#code-architect">code-architect</a></li>
+        <li class="toc__item"><a href="#code-explorer">code-explorer</a></li>
+        <li class="toc__item"><a href="#code-simplifier">code-simplifier</a></li>
+        <li class="toc__item"><a href="#comment-analyzer">comment-analyzer</a></li>
+        <li class="toc__item"><a href="#code-reviewer">code-reviewer</a></li>
+        <li class="toc__item"><a href="#pr-test-analyzer">pr-test-analyzer</a></li>
+        <li class="toc__item"><a href="#silent-failure-hunter">silent-failure-hunter</a></li>
+        <li class="toc__item"><a href="#type-design-analyzer">type-design-analyzer</a></li>
+        <li class="toc__item"><a href="#file-template">File template</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Agents</h1>
+        <p class="subtitle">
+          Specialized subagents registered in <code>.claude/agents/</code>.
+          Each agent has a specific mission and output format. Claude Code selects them
+          automatically based on their description, or they can be invoked explicitly.
+        </p>
+        <div class="meta">
+          <span class="tag">agents</span>
+          <span class="tag">claude-code</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Agent</th><th>Model</th><th>Purpose</th><th>Trigger</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#code-architect"><code>code-architect</code></a></td><td>sonnet</td><td>Design feature architectures</td><td>Before implementing a non-trivial feature</td></tr>
+              <tr><td><a href="#code-explorer"><code>code-explorer</code></a></td><td>sonnet</td><td>Trace execution paths of existing features</td><td>When understanding an unfamiliar area</td></tr>
+              <tr><td><a href="#code-simplifier"><code>code-simplifier</code></a></td><td>opus</td><td>Simplify recently written code</td><td>Auto — after completing a coding task</td></tr>
+              <tr><td><a href="#comment-analyzer"><code>comment-analyzer</code></a></td><td>inherit</td><td>Verify comment accuracy</td><td>After writing large doc comments or before PR</td></tr>
+              <tr><td><a href="#code-reviewer"><code>code-reviewer</code></a></td><td>opus</td><td>Review code for guideline compliance + bugs</td><td>Before creating a PR</td></tr>
+              <tr><td><a href="#pr-test-analyzer"><code>pr-test-analyzer</code></a></td><td>inherit</td><td>Review test coverage quality</td><td>When assessing PR test completeness</td></tr>
+              <tr><td><a href="#silent-failure-hunter"><code>silent-failure-hunter</code></a></td><td>inherit</td><td>Find silent failures and bad error handling</td><td>After writing error-handling code</td></tr>
+              <tr><td><a href="#type-design-analyzer"><code>type-design-analyzer</code></a></td><td>inherit</td><td>Analyze type design and invariants</td><td>When introducing new types or refactoring</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="code-architect">
+        <h2>code-architect</h2>
+        <p><strong>Model:</strong> sonnet &nbsp;·&nbsp; <strong>Color:</strong> green</p>
+        <p>
+          Designs feature architectures by analyzing existing codebase patterns and conventions,
+          then produces a complete implementation blueprint. Use before implementing any non-trivial
+          feature to ensure the approach integrates cleanly with existing code.
+        </p>
+
+        <h3>Process</h3>
+        <ol>
+          <li>Extract existing patterns, conventions, architectural decisions, and module boundaries from the codebase.</li>
+          <li>Make a decisive architectural choice — one recommendation, not a menu.</li>
+          <li>Specify every file to create or modify, component responsibilities, and integration points.</li>
+        </ol>
+
+        <h3>Deliverables</h3>
+        <ul>
+          <li>Patterns and conventions found (with <code>file:line</code> references)</li>
+          <li>Chosen architecture with rationale and trade-offs</li>
+          <li>Component designs with responsibilities and dependencies</li>
+          <li>Implementation map — specific files and what changes in each</li>
+          <li>Complete data flow</li>
+          <li>Build sequence as a checklist</li>
+          <li>Critical details: error handling, state management, testing, security</li>
+        </ul>
+      </section>
+
+      <section id="code-explorer">
+        <h2>code-explorer</h2>
+        <p><strong>Model:</strong> sonnet &nbsp;·&nbsp; <strong>Color:</strong> yellow</p>
+        <p>
+          Deeply analyzes an existing feature by tracing execution paths, mapping architecture layers,
+          and documenting dependencies. Use when you need to understand an unfamiliar part of the
+          codebase before making changes.
+        </p>
+
+        <h3>Process</h3>
+        <ol>
+          <li>Find entry points (APIs, UI components, CLI commands) and core implementation files.</li>
+          <li>Follow call chains, trace data transformations, identify dependencies, document side effects.</li>
+          <li>Map abstraction layers: presentation → business logic → data.</li>
+          <li>Document algorithms, data structures, error handling, and edge cases.</li>
+        </ol>
+
+        <h3>Deliverables</h3>
+        <ul>
+          <li>Entry points with <code>file:line</code> references</li>
+          <li>Step-by-step execution flow with data transformations</li>
+          <li>Key components and their responsibilities</li>
+          <li>Architecture insights (patterns, layers, design decisions)</li>
+          <li>Dependencies (external and internal)</li>
+          <li>List of essential files to understand the feature</li>
+        </ul>
+      </section>
+
+      <section id="code-simplifier">
+        <h2>code-simplifier</h2>
+        <p><strong>Model:</strong> opus &nbsp;·&nbsp; <strong>Color:</strong> green</p>
+        <p>
+          Simplifies recently written or modified code for clarity, consistency, and maintainability
+          while preserving all functionality. Auto-triggered after completing a coding task.
+          Only refines recently modified code unless instructed otherwise.
+        </p>
+
+        <h3>Principles</h3>
+        <ul>
+          <li>Preserve functionality — only changes <em>how</em> code does things, not <em>what</em> it does.</li>
+          <li>Apply project standards from CLAUDE.md (import patterns, naming, error handling).</li>
+          <li>Reduce nesting, eliminate redundancy, improve naming, avoid nested ternaries.</li>
+          <li>Avoid over-simplification that reduces maintainability.</li>
+        </ul>
+      </section>
+
+      <section id="comment-analyzer">
+        <h2>comment-analyzer</h2>
+        <p><strong>Model:</strong> inherit &nbsp;·&nbsp; <strong>Color:</strong> green</p>
+        <p>
+          Analyzes code comments for accuracy, completeness, and long-term maintainability.
+          Use after generating large documentation comments or before finalizing PRs with comments.
+          <strong>Never modifies code directly</strong> — only provides feedback.
+        </p>
+
+        <h3>What it checks</h3>
+        <ul>
+          <li><strong>Factual accuracy</strong> — cross-references every comment claim against actual code.</li>
+          <li><strong>Completeness</strong> — sufficient context without being redundant.</li>
+          <li><strong>Long-term value</strong> — will this comment still be useful in 2 years?</li>
+          <li><strong>Misleading elements</strong> — ambiguous language, outdated references, incorrect assumptions.</li>
+        </ul>
+
+        <h3>Output</h3>
+        <ul>
+          <li>Summary of scope and findings</li>
+          <li>Critical Issues (factually incorrect or highly misleading)</li>
+          <li>Improvement Opportunities</li>
+          <li>Recommended Removals</li>
+          <li>Positive Findings</li>
+        </ul>
+      </section>
+
+      <section id="code-reviewer">
+        <h2>code-reviewer</h2>
+        <p><strong>Model:</strong> opus &nbsp;·&nbsp; <strong>Color:</strong> green</p>
+        <p>
+          Reviews code for adherence to project guidelines (CLAUDE.md) and detects actual bugs.
+          By default reviews unstaged changes from <code>git diff</code>.
+          Uses a <strong>confidence ≥ 80</strong> threshold — only reports issues it is highly confident about.
+        </p>
+
+        <h3>Review scope</h3>
+        <ul>
+          <li><strong>Project guidelines compliance</strong> — import patterns, framework conventions, naming, error handling, testing, logging.</li>
+          <li><strong>Bug detection</strong> — logic errors, null/undefined handling, race conditions, memory leaks, security, performance.</li>
+          <li><strong>Code quality</strong> — duplication, missing error handling, accessibility, test coverage gaps.</li>
+        </ul>
+
+        <h3>Confidence scoring (0–100)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Score</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>≥ 80</td><td>Reported — highly confident, real issue</td></tr>
+              <tr><td>50–79</td><td>Not reported — real but too nitpicky</td></tr>
+              <tr><td>&lt; 50</td><td>Not reported — likely false positive</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Output</h3>
+        <p>Grouped by severity (Critical → Important) with: description, <code>file:line</code> reference, CLAUDE.md rule citation, concrete fix.</p>
+      </section>
+
+      <section id="pr-test-analyzer">
+        <h2>pr-test-analyzer</h2>
+        <p><strong>Model:</strong> inherit &nbsp;·&nbsp; <strong>Color:</strong> cyan</p>
+        <p>
+          Reviews pull requests for test coverage quality and completeness.
+          Focuses on behavioral coverage — not line coverage.
+          Each recommendation is rated 1–10 for criticality.
+        </p>
+
+        <h3>What it looks for</h3>
+        <ul>
+          <li>Untested error handling</li>
+          <li>Missing edge cases</li>
+          <li>Uncovered business logic</li>
+          <li>Missing negative tests</li>
+          <li>Absent async behavior tests</li>
+        </ul>
+
+        <h3>Criticality ratings</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rating</th><th>Severity</th></tr></thead>
+            <tbody>
+              <tr><td>9–10</td><td>Critical — data loss, security, system failures</td></tr>
+              <tr><td>7–8</td><td>Important — user-facing errors</td></tr>
+              <tr><td>5–6</td><td>Edge cases — confusion, minor issues</td></tr>
+              <tr><td>3–4</td><td>Nice-to-have</td></tr>
+              <tr><td>1–2</td><td>Minor improvements</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="silent-failure-hunter">
+        <h2>silent-failure-hunter</h2>
+        <p><strong>Model:</strong> inherit &nbsp;·&nbsp; <strong>Color:</strong> yellow</p>
+        <p>
+          Reviews code changes for silent failures, inadequate error handling, and inappropriate
+          fallback behavior. Invoke proactively after any work involving error handling or catch blocks.
+        </p>
+
+        <h3>Core principles</h3>
+        <ul>
+          <li>Silent failures are unacceptable in production.</li>
+          <li>Users deserve actionable feedback — not generic errors.</li>
+          <li>Fallbacks must be explicit and justified.</li>
+          <li>Catch blocks must be specific — never catch <code>Exception</code> or <code>Error</code> broadly.</li>
+          <li>Mock/fake implementations belong only in tests.</li>
+        </ul>
+
+        <h3>What it scans</h3>
+        <ul>
+          <li>Empty catch blocks</li>
+          <li>Catch-then-continue patterns</li>
+          <li>Returning <code>null</code> on error instead of throwing</li>
+          <li>Optional chaining used as error suppression</li>
+          <li>Retry exhaustion without user notification</li>
+        </ul>
+
+        <h3>Output per issue</h3>
+        <p>Location (<code>file:line</code>), severity (CRITICAL / HIGH / MEDIUM), issue description, hidden errors list, user impact, recommendation, corrected code example.</p>
+      </section>
+
+      <section id="type-design-analyzer">
+        <h2>type-design-analyzer</h2>
+        <p><strong>Model:</strong> inherit &nbsp;·&nbsp; <strong>Color:</strong> pink</p>
+        <p>
+          Analyzes type design in the codebase. Use when introducing new types, during PR creation,
+          or when refactoring existing types. Rates four dimensions on a 1–10 scale.
+        </p>
+
+        <h3>Four rated dimensions</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Dimension</th><th>What it measures</th></tr></thead>
+            <tbody>
+              <tr><td>Encapsulation</td><td>Hidden implementation details, appropriate access modifiers, minimal interface</td></tr>
+              <tr><td>Invariant Expression</td><td>Clarity through type structure, compile-time enforcement, self-documentation</td></tr>
+              <tr><td>Invariant Usefulness</td><td>Prevents real bugs, aligned with business requirements</td></tr>
+              <tr><td>Invariant Enforcement</td><td>Checked at construction, all mutation points guarded, impossible invalid states</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Key principles</h3>
+        <ul>
+          <li>Prefer compile-time guarantees over runtime checks.</li>
+          <li>Types should make illegal states unrepresentable.</li>
+          <li>Constructor validation is crucial.</li>
+          <li>Value clarity over cleverness.</li>
+        </ul>
+      </section>
+
+      <section id="file-template">
+        <h2>Agent file template</h2>
+        <p>Place in <code>.claude/agents/my-agent.md</code>:</p>
+        <pre data-lang="markdown"><code>---
+name: my-agent
+description: One-line description. Claude Code reads this to decide when to use the agent automatically.
+model: sonnet
+color: green
+---
+
+# My Agent
+
+## Mission
+What this agent exists to do — one clear paragraph.
+
+## Process
+1. First step — what to analyze or read
+2. Second step — what to produce
+3. ...
+
+## Output format
+- Bullet describing what the agent returns
+- Include file:line references where applicable
+- Include severity ratings if reviewing</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

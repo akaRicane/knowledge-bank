@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdonisJS v6 — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">v6</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#package-versions">Package versions</a></li>
+        <li class="toc__item"><a href="#adonisrc">adonisrc.ts structure</a></li>
+        <li class="toc__item toc__item--sub"><a href="#providers">Providers</a></li>
+        <li class="toc__item toc__item--sub"><a href="#preloads">Preloads</a></li>
+        <li class="toc__item toc__item--sub"><a href="#experimental">Experimental flags</a></li>
+        <li class="toc__item"><a href="#path-aliases">Path aliases (#)</a></li>
+        <li class="toc__item"><a href="#middleware">Middleware kernel</a></li>
+        <li class="toc__item"><a href="#two-app-setup">Two-app monorepo setup</a></li>
+        <li class="toc__item"><a href="#env-validation">Env validation at boot</a></li>
+        <li class="toc__item"><a href="#commands">Useful ace commands</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>AdonisJS v6</h1>
+        <p class="subtitle">
+          Version-specific notes: package versions, <code>adonisrc.ts</code> structure,
+          path aliases, and project setup for the v6 release line.
+        </p>
+        <div class="meta">
+          <span class="tag version-tag" style="background:#0d1b2e;color:#4f8ef7;border-color:#4f8ef7;">v6</span>
+          <span class="tag">typescript</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="package-versions">
+        <h2>Package versions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Package</th><th>Version</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>@adonisjs/core</code></td><td>^6.x</td><td>Framework core</td></tr>
+              <tr><td><code>@adonisjs/lucid</code></td><td>^21.x</td><td>Lucid ORM</td></tr>
+              <tr><td><code>@adonisjs/auth</code></td><td>^9.x</td><td>Authentication guards</td></tr>
+              <tr><td><code>@adonisjs/mail</code></td><td>^9.x</td><td>Mailer service</td></tr>
+              <tr><td><code>@adonisjs/inertia</code></td><td>^2.x</td><td>Inertia.js adapter (webapp)</td></tr>
+              <tr><td><code>@adonisjs/vite</code></td><td>^3.x</td><td>Vite integration (webapp)</td></tr>
+              <tr><td><code>@adonisjs/session</code></td><td>^7.x</td><td>Cookie sessions (webapp)</td></tr>
+              <tr><td><code>@adonisjs/shield</code></td><td>^8.x</td><td>CSRF, HSTS (webapp)</td></tr>
+              <tr><td><code>@adonisjs/static</code></td><td>^1.x</td><td>Static file serving (webapp)</td></tr>
+              <tr><td><code>@adonisjs/cors</code></td><td>^2.x</td><td>CORS middleware</td></tr>
+              <tr><td><code>@vinejs/vine</code></td><td>^3.x</td><td>Validation (via vinejs_provider)</td></tr>
+              <tr><td><code>typescript</code></td><td>^5.x</td><td>Required; v6 uses decorators</td></tr>
+              <tr><td><code>reflect-metadata</code></td><td>—</td><td>Required for decorators; import in entry file</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="adonisrc">
+        <h2>adonisrc.ts structure</h2>
+        <p>
+          The <code>adonisrc.ts</code> file is the app definition. It declares providers, commands,
+          preloads, test suites, and experimental flags. It replaces the v5 <code>.adonisrc.json</code>.
+        </p>
+
+        <h3 id="providers">Providers</h3>
+        <p>All providers use lazy imports — the function is called only if the provider is actually loaded.</p>
+        <pre data-lang="typescript"><code>// backend/adonisrc.ts
+import { defineConfig } from '@adonisjs/core/app'
+
+export default defineConfig({
+  providers: [
+    () => import('@adonisjs/core/providers/app_provider'),
+    () => import('@adonisjs/core/providers/hash_provider'),
+    [() => import('@adonisjs/core/providers/repl_provider'), ['repl', 'test']],
+    () => import('@adonisjs/core/providers/vinejs_provider'),
+    () => import('@adonisjs/cors/cors_provider'),
+    () => import('@adonisjs/auth/auth_provider'),
+    () => import('@adonisjs/lucid/database_provider'),
+    () => import('@adonisjs/mail/mail_provider'),
+  ],
+})</code></pre>
+        <p>The tuple syntax <code>[provider, environments]</code> restricts a provider to specific environments (e.g. <code>repl_provider</code> in <code>repl</code> and <code>test</code> only).</p>
+
+        <h3 id="preloads">Preloads</h3>
+        <pre data-lang="typescript"><code>preloads: [
+  () => import('#start/routes'),
+  () => import('#start/kernel'),
+  () => import('#start/mailer'),  // boot-time mailer mock
+],</code></pre>
+        <p>Preloads run on every app boot, in order. Use them for one-time setup (routes, middleware, global mocks).</p>
+
+        <h3 id="experimental">Experimental flags</h3>
+        <pre data-lang="typescript"><code>experimental: {
+  mergeMultipartFieldsAndFiles: true,  // multipart body + files merged into request.body()
+  shutdownInReverseOrder: true,        // providers shut down LIFO
+},</code></pre>
+
+        <h3>Test suites</h3>
+        <pre data-lang="typescript"><code>tests: {
+  suites: [
+    {
+      name: 'unit',
+      files: ['tests/unit/**/*.spec(.ts|.js)'],
+      timeout: 2000,
+    },
+    {
+      name: 'functional',
+      files: ['tests/functional/**/*.spec(.ts|.js)'],
+      timeout: 30000,
+    },
+  ],
+  forceExit: false,
+},</code></pre>
+      </section>
+
+      <section id="path-aliases">
+        <h2>Path aliases (#)</h2>
+        <p>
+          In v6, the <code>#</code> prefix replaces relative imports for app-internal paths.
+          Aliases are declared in <code>package.json</code> under <code>imports</code>:
+        </p>
+        <pre data-lang="json"><code>{
+  "imports": {
+    "#controllers/*": "./app/controllers/*.js",
+    "#models/*":      "./app/models/*.js",
+    "#services/*":    "./app/services/*.js",
+    "#validators/*":  "./app/validators/*.js",
+    "#common/*":      "./app/common/*.js",
+    "#start/*":       "./start/*.js",
+    "#config/*":      "./config/*.js"
+  }
+}</code></pre>
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            The <code>.js</code> extension is used even in TypeScript source because Node.js ESM
+            resolves compiled output. TypeScript follows these mappings via <code>tsconfig.json</code>
+            <code>paths</code>.
+          </div>
+        </div>
+      </section>
+
+      <section id="middleware">
+        <h2>Middleware kernel</h2>
+        <p><strong>File:</strong> <code>start/kernel.ts</code></p>
+        <pre data-lang="typescript"><code>import router from '@adonisjs/core/services/router'
+import server from '@adonisjs/core/services/server'
+
+// Server middleware — runs on every request
+server.use([
+  () => import('#middleware/container_bindings_middleware'),
+  () => import('@adonisjs/cors/cors_middleware'),
+  // webapp only:
+  () => import('@adonisjs/static/static_middleware'),
+  () => import('@adonisjs/vite/vite_middleware'),
+  () => import('@adonisjs/inertia/inertia_middleware'),
+])
+
+// Router middleware — runs on matched routes
+router.use([
+  () => import('@adonisjs/core/bodyparser_middleware'),
+  () => import('@adonisjs/auth/initialize_auth_middleware'),
+  // webapp only:
+  () => import('@adonisjs/session/session_middleware'),
+  () => import('@adonisjs/shield/shield_middleware'),
+])
+
+// Named middleware
+export const middleware = router.named({
+  auth: () => import('#middleware/auth_middleware'),
+})</code></pre>
+      </section>
+
+      <section id="two-app-setup">
+        <h2>Two-app monorepo setup</h2>
+        <p>When running two AdonisJS apps in one monorepo:</p>
+        <ul>
+          <li>Place each app in its own directory (<code>backend/</code>, <code>webapp/</code>).</li>
+          <li>Use a root <code>package.json</code> with workspace scripts to start both via <code>concurrently</code>.</li>
+          <li>Use <code>wait-on</code> to health-check the backend before running webapp tests.</li>
+          <li>Each app has its own <code>tsconfig.json</code>, <code>adonisrc.ts</code>, <code>.env</code>, and migrations.</li>
+          <li>The webapp reads <code>BACKEND_API_URL</code> to locate the backend at runtime.</li>
+        </ul>
+        <pre data-lang="json"><code>// root package.json scripts
+{
+  "scripts": {
+    "dev":          "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=webapp\"",
+    "test":         "npm run test --workspace=backend && npm run seed && npm run test:webapp",
+    "test:webapp":  "wait-on http://localhost:3333 && npm run test --workspace=webapp",
+    "seed":         "npm run db:seed --workspace=backend"
+  }
+}</code></pre>
+      </section>
+
+      <section id="env-validation">
+        <h2>Env validation at boot</h2>
+        <p>
+          In v6, environment variables are validated at startup via <code>start/env.ts</code>.
+          Missing or wrong-type values throw a fatal error before the server starts.
+        </p>
+        <pre data-lang="typescript"><code>// start/env.ts
+import { Env } from '@adonisjs/core/env'
+
+export default await Env.create(new URL('../', import.meta.url), {
+  NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
+  PORT:     Env.schema.number(),
+  HOST:     Env.schema.string({ format: 'host' }),
+  APP_KEY:  Env.schema.string(),
+  DB_HOST:  Env.schema.string({ format: 'host' }),
+  DB_PORT:  Env.schema.number(),
+  DB_USER:  Env.schema.string(),
+  DB_PASSWORD: Env.schema.string.optional(),
+  DB_DATABASE: Env.schema.string(),
+  MAILER_MOCK: Env.schema.boolean(),
+})</code></pre>
+        <p>
+          There is no optional fallback for required variables — a missing value is always a boot error.
+          This surfaces configuration issues early, before requests are accepted.
+        </p>
+      </section>
+
+      <section id="commands">
+        <h2>Useful ace commands</h2>
+        <pre data-lang="bash"><code># Generate a new app key
+node ace generate:key
+
+# Run migrations
+node ace migration:run
+node ace migration:rollback
+
+# Run seeders
+node ace db:seed
+node ace db:seed --files="database/seeders/main_seeder.ts"
+
+# Create a migration
+node ace make:migration create_artists_table
+
+# Create a model
+node ace make:model Artist
+
+# Create a controller
+node ace make:controller ArtistsController
+
+# Run tests
+node ace test
+node ace test --suite=functional
+node ace test -- --grep "pattern"
+
+# Start dev server
+node ace serve --watch</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

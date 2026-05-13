@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Authentication</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#backend-oat">Backend — OAT Guard</a></li>
+        <li class="toc__item toc__item--sub"><a href="#guard-config">Guard config</a></li>
+        <li class="toc__item toc__item--sub"><a href="#registration">Registration</a></li>
+        <li class="toc__item toc__item--sub"><a href="#login">Login / Logout</a></li>
+        <li class="toc__item toc__item--sub"><a href="#email-verification">Email verification</a></li>
+        <li class="toc__item toc__item--sub"><a href="#password-reset">Password reset</a></li>
+        <li class="toc__item toc__item--sub"><a href="#roles">Roles & authorization</a></li>
+        <li class="toc__item"><a href="#webapp-cookie">Webapp — Cookie forwarding</a></li>
+        <li class="toc__item toc__item--sub"><a href="#cookie-lifecycle">Cookie lifecycle</a></li>
+        <li class="toc__item toc__item--sub"><a href="#account-guard">Account guard</a></li>
+        <li class="toc__item toc__item--sub"><a href="#csrf">CSRF exemption</a></li>
+        <li class="toc__item"><a href="#password-hashing">Password hashing</a></li>
+        <li class="toc__item"><a href="#mail-classes">Mail classes</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Authentication</h1>
+        <p class="subtitle">
+          Token-based auth on the backend (OAT via <code>@adonisjs/auth</code>), and
+          cookie-based token forwarding on the webapp. Covers the full user lifecycle:
+          register, login, email verification, password reset, roles.
+        </p>
+        <div class="meta">
+          <span class="tag">adonis</span>
+          <span class="tag">auth</span>
+          <span class="tag">oat</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <!-- ===== BACKEND ===== -->
+      <section id="backend-oat">
+        <h2>Backend — OAT Guard</h2>
+        <p>
+          The backend uses <strong>Opaque Access Tokens (OAT)</strong> via the <code>authToken</code> guard.
+          Tokens are stored in the <code>auth_access_tokens</code> database table.
+        </p>
+
+        <h3 id="guard-config">Guard configuration</h3>
+        <p><strong>File:</strong> <code>backend/config/auth.ts</code></p>
+        <pre data-lang="typescript"><code>default: 'authToken',
+guards: {
+  authToken: tokensGuard({
+    provider: tokensUserProvider({
+      tokens: 'accessTokens',
+      model: () => import('#models/user'),
+    }),
+  }),
+}</code></pre>
+        <p>
+          The <code>User</code> model exposes
+          <code>static accessTokens = DbAccessTokensProvider.forModel(User)</code>
+          for token storage.
+        </p>
+
+        <h3 id="registration">Registration</h3>
+        <p><strong>Endpoint:</strong> <code>POST /user/register</code> (public)</p>
+        <ol>
+          <li>Validate with <code>createUserValidator</code> — <code>email</code>, <code>password</code>, <code>confirmPassword</code> (min 8 chars, must match).</li>
+          <li>Check for duplicate email via <code>UserService.alreadyExists()</code> → 409 if found.</li>
+          <li><code>UserService.create()</code> runs a DB transaction: creates <code>User</code> with a random 64-char <code>emailVerificationToken</code>, then creates linked <code>Profile</code>.</li>
+          <li>Generate access token via <code>UserService.generateToken()</code>.</li>
+          <li>Send <code>VerifyEmailMail</code>.</li>
+          <li>Return <code>201</code> with <code>{ user, token, message }</code>.</li>
+        </ol>
+        <pre data-lang="json"><code>{
+  "user": { "publicId": "...", "email": "...", "profile": { ... } },
+  "token": { "type": "bearer", "value": "oat_..." },
+  "message": "Successfully registered user"
+}</code></pre>
+
+        <h3 id="login">Login / Logout</h3>
+        <p><strong>Login:</strong> <code>POST /user/login</code> — validates credentials, calls <code>User.verifyCredentials()</code>, creates a new access token, returns <code>{ user, token }</code>.</p>
+        <p><strong>Logout:</strong> <code>POST /user/logout</code> (guarded) — deletes the current token via <code>User.accessTokens.delete()</code>.</p>
+        <p><strong>Update password:</strong> <code>POST /user/update</code> (guarded) — validates <code>newPassword</code> + <code>confirmNewPassword</code>. Password is auto-hashed by <code>AuthFinder</code>.</p>
+        <p><strong>Delete account:</strong> <code>DELETE /user/remove</code> (guarded) — requires <code>email</code> + <code>password</code> re-authentication. Profile cascades on delete.</p>
+
+        <h3 id="email-verification">Email verification</h3>
+        <p><strong>Verify:</strong> <code>GET /user/verify-email?token=...</code> — looks up user by <code>emailVerificationToken</code>. Sets <code>emailIsVerified = true</code> and clears the token. Returns 400 if not found or already used.</p>
+        <p><strong>Resend:</strong> <code>POST /user/resend-verification</code> (guarded) — generates a new 64-char token, sends <code>VerifyEmailMail</code>. Returns early if already verified.</p>
+
+        <h3 id="password-reset">Password reset</h3>
+        <p><strong>Request:</strong> <code>POST /user/forgot-password</code> — always returns <code>200</code> regardless of whether the email exists (prevents email enumeration). If user is found: generates a 64-char <code>passwordResetToken</code> with 1-hour expiry, sends <code>PasswordResetMail</code>.</p>
+        <p><strong>Execute:</strong> <code>POST /user/reset-password</code> — validates <code>token</code>, <code>password</code>, <code>confirmPassword</code>. Returns 400 if token not found or expired. Clears token and expiry on success.</p>
+
+        <h3 id="roles">Roles &amp; authorization</h3>
+        <p><strong>Enum file:</strong> <code>backend/app/common/users/enums.ts</code></p>
+        <pre data-lang="typescript"><code>export enum UserRole {
+  ADMIN     = 'admin',
+  MODERATOR = 'moderator',
+  DEFAULT   = 'default',
+}</code></pre>
+        <p>Stored as a PostgreSQL <code>user_role</code> enum type. Default: <code>'default'</code>.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Method</th><th>Returns true when</th></tr></thead>
+            <tbody>
+              <tr><td><code>user.isAdmin()</code></td><td><code>role === ADMIN</code></td></tr>
+              <tr><td><code>user.isModerator()</code></td><td><code>role === MODERATOR</code></td></tr>
+              <tr><td><code>user.hasModeratorAccess()</code></td><td><code>role</code> is ADMIN or MODERATOR</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Currently only <code>POST /users/index</code> is role-gated (admin only, returns 401 for others).</p>
+      </section>
+
+      <!-- ===== WEBAPP ===== -->
+      <section id="webapp-cookie">
+        <h2>Webapp — Cookie forwarding</h2>
+        <p>
+          The webapp does <strong>not</strong> use an AdonisJS auth guard. Instead it stores the backend
+          OAT in an <code>oat_token</code> httpOnly cookie and forwards it as a <code>Bearer</code>
+          header on every authenticated backend request.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Concern</th><th>Mechanism</th></tr></thead>
+            <tbody>
+              <tr><td>Token storage</td><td><code>oat_token</code> cookie (httpOnly, sameSite: lax, maxAge: 2h)</td></tr>
+              <tr><td>Token forwarding</td><td><code>Authorization: Bearer &lt;token&gt;</code> header on backend requests</td></tr>
+              <tr><td>Session</td><td>AdonisJS cookie session (<code>SESSION_DRIVER=cookie</code>)</td></tr>
+              <tr><td>CSRF</td><td><code>@adonisjs/shield</code> — exempt for all <code>/user/*</code> routes</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="cookie-lifecycle">Cookie lifecycle</h3>
+        <p><strong>Set on register / login:</strong> on a successful backend response, the webapp sets the cookie:</p>
+        <pre data-lang="typescript"><code>ok
+  ? response.cookie('oat_token', data.token.value as string)
+  : response.clearCookie('oat_token')</code></pre>
+
+        <p><strong>Read on authenticated requests:</strong></p>
+        <pre data-lang="typescript"><code>const authToken: string = request.cookie('oat_token', 'invalid_oat_token')</code></pre>
+
+        <p><strong>Cleared on logout / error:</strong> logout calls the backend to revoke the token, then <code>response.clearCookie('oat_token')</code>.</p>
+
+        <h3 id="account-guard">Account page guard</h3>
+        <p>The webapp has no auth middleware. <code>NavigationsController.account</code> manually checks the cookie:</p>
+        <pre data-lang="typescript"><code>async account(ctx: HttpContext) {
+  const authToken = ctx.request.cookie('oat_token', 'invalid_oat_token')
+  if (authToken) {
+    const { data, ok } = await this.authService.getUser(authToken)
+    if (!ok) return ctx.response.redirect('login')
+    return ctx.inertia.render('account/Account', { user: data.user })
+  } else {
+    return ctx.response.redirect('login')
+  }
+}</code></pre>
+
+        <h3 id="csrf">CSRF exemption</h3>
+        <p>All <code>/user/*</code> routes are exempt from CSRF verification in <code>config/shield.ts</code>:</p>
+        <pre data-lang="typescript"><code>csrf: {
+  enabled: true,
+  exceptRoutes: (ctx) => ctx.request.url().startsWith('/user'),
+  enableXsrfCookie: true,
+}</code></pre>
+        <p>This allows client-side React to POST auth routes without managing <code>X-XSRF-TOKEN</code> headers.</p>
+      </section>
+
+      <!-- ===== HASHING ===== -->
+      <section id="password-hashing">
+        <h2>Password hashing</h2>
+        <p>
+          Uses <strong>scrypt</strong> via <code>@adonisjs/core/hash</code>. The <code>withAuthFinder</code>
+          mixin auto-hashes passwords on save and provides <code>User.verifyCredentials(email, password)</code>.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>Algorithm</td><td>scrypt</td></tr>
+              <tr><td>cost</td><td>16 384</td></tr>
+              <tr><td>blockSize</td><td>8</td></tr>
+              <tr><td>parallelization</td><td>1</td></tr>
+              <tr><td>maxMemory</td><td>32 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== MAIL CLASSES ===== -->
+      <section id="mail-classes">
+        <h2>Mail classes</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Class</th><th>Subject</th><th>Link URL pattern</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>VerifyEmailMail</code></td>
+                <td>Verify your email address</td>
+                <td><code>{FRONTEND_URL}/verify-email?token={token}</code></td>
+              </tr>
+              <tr>
+                <td><code>PasswordResetMail</code></td>
+                <td>Reset your password</td>
+                <td><code>{FRONTEND_URL}/reset-password?token={token}</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Both use HTML Edge templates with a single CTA link. See <a href="mailer.html">mailer.html</a> for SMTP config and test mocking.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

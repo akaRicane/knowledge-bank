@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Tooling — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout page-layout--full">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Claude Tooling</span>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Claude Tooling</h1>
+        <p class="subtitle">
+          Project-agnostic agents, commands, hooks, and skills for Claude Code.
+          Use this as a registry of reusable tooling to wire into any project's <code>.claude/</code> folder.
+        </p>
+        <div class="meta">
+          <span class="tag">agents</span>
+          <span class="tag">commands</span>
+          <span class="tag">hooks</span>
+          <span class="tag">skills</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="contents">
+        <h2>Contents</h2>
+        <ul class="doc-list">
+          <li class="doc-list__item">
+            <a href="agents.html">Agents</a>
+            <span>8 specialized subagents: code-architect, code-explorer, code-simplifier, comment-analyzer, code-reviewer, pr-test-analyzer, silent-failure-hunter, type-design-analyzer.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="commands.html">Commands</a>
+            <span>6 slash commands: feature-dev, review-pr, code-review, commit, commit-push-pr, clean_gone.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="hooks.html">Hooks</a>
+            <span>Security reminder hook (pre-tool-use). Patterns for writing custom hooks.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="skills.html">Skills</a>
+            <span>frontend-design skill. Patterns for writing custom skills.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section id="project-setup">
+        <h2>Wiring <code>.claude/</code> in a project</h2>
+        <p>
+          Claude Code looks for tooling in the <code>.claude/</code> folder at the root of a project.
+          The folder structure is:
+        </p>
+        <pre data-lang="text"><code>.claude/
+├── settings.json          ← hooks, MCP servers, enabled features
+├── settings.local.json    ← per-machine permission allowlists (gitignore this)
+├── agents/                ← subagent definitions (.md files)
+├── commands/              ← slash command definitions (.md files)
+├── hooks/                 ← hook scripts (Python, shell, etc.)
+└── skills/
+    └── my-skill/
+        └── SKILL.md       ← skill definition</code></pre>
+
+        <h3>settings.json structure</h3>
+        <pre data-lang="json"><code>{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security_reminder_hook.py"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledMcpjsonServers": ["jira"]
+}</code></pre>
+
+        <h3>settings.local.json — permission allowlist</h3>
+        <p>
+          Pre-approve common commands to reduce permission prompts. This file is machine-specific
+          and should be gitignored:
+        </p>
+        <pre data-lang="json"><code>{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npx prettier *)",
+      "Bash(npx tsc *)",
+      "Bash(eslint .)",
+      "Bash(prettier --write .)",
+      "Bash(gh api:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  }
+}</code></pre>
+
+        <h3>Agent files</h3>
+        <p>Agent files in <code>.claude/agents/</code> use YAML front matter:</p>
+        <pre data-lang="markdown"><code>---
+name: my-agent
+description: One-line description of when Claude Code should use this agent
+model: sonnet
+color: green
+---
+
+Agent system prompt here. Describe what the agent does, its process,
+and what it outputs.</code></pre>
+
+        <h3>Command files</h3>
+        <p>Command files in <code>.claude/commands/</code> use YAML front matter:</p>
+        <pre data-lang="markdown"><code>---
+description: What this command does
+argument-hint: [optional-args]
+allowed-tools:
+  - Bash(git status:*)
+  - Bash(git commit:*)
+---
+
+Command instructions here. Describe the exact steps Claude should follow
+when the user runs /command-name.</code></pre>
+
+        <h3>Skill files</h3>
+        <p>Skills live in <code>.claude/skills/skill-name/SKILL.md</code> and are invoked with <code>/skill-name</code>:</p>
+        <pre data-lang="markdown"><code>---
+name: my-skill
+description: When to use this skill
+---
+
+Skill instructions here.</code></pre>
+      </section>
+
+      <section id="using-knowledge-bank">
+        <h2>Using this knowledge bank from a project</h2>
+        <p>
+          Add the knowledge bank as a submodule, then reference it from your project's CLAUDE.md
+          or from agent/command files so Claude Code can navigate its documentation:
+        </p>
+        <pre data-lang="bash"><code>git submodule add &lt;remote-url&gt; knowledge_bank</code></pre>
+        <p>
+          In your project's <code>CLAUDE.md</code>, point agents to the knowledge bank entry point:
+        </p>
+        <pre data-lang="markdown"><code>## Knowledge bank
+
+Project-agnostic patterns and tooling are documented in `knowledge_bank/`.
+Start from `knowledge_bank/index.html` and follow theme links to find relevant docs.</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

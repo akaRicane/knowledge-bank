@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Bank</title>
+  <link rel="stylesheet" href="_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout page-layout--full">
+    <nav class="breadcrumb">
+      <span class="breadcrumb__current">Knowledge Bank</span>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Knowledge Bank</h1>
+        <p class="subtitle">
+          Programming knowledge organized by theme. Use this as a git submodule to import
+          documentation into any project. Each theme contains common knowledge and version-specific notes.
+        </p>
+        <div class="meta">
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="themes">
+        <h2>Themes</h2>
+
+        <div class="card-grid">
+          <a href="claude/index.html" class="card">
+            <div class="card__title">Claude Tooling</div>
+            <div class="card__desc">
+              Project-agnostic agents, commands, hooks, and skills for Claude Code.
+              Reference from any project's <code>.claude/</code> folder.
+            </div>
+            <div class="card__tags">
+              <span class="tag">agents</span>
+              <span class="tag">commands</span>
+              <span class="tag">hooks</span>
+            </div>
+          </a>
+
+          <a href="adonis/index.html" class="card">
+            <div class="card__title">AdonisJS</div>
+            <div class="card__desc">
+              Services, auth, models, mailer, validation, and testing patterns.
+              Covers common knowledge and v6 specifics.
+            </div>
+            <div class="card__tags">
+              <span class="tag">typescript</span>
+              <span class="tag">node</span>
+              <span class="tag">v6</span>
+            </div>
+          </a>
+
+          <a href="design/index.html" class="card">
+            <div class="card__title">Design</div>
+            <div class="card__desc">
+              Artistic direction, CSS token systems, component patterns,
+              and UI conventions.
+            </div>
+            <div class="card__tags">
+              <span class="tag">css</span>
+              <span class="tag">ui</span>
+            </div>
+          </a>
+
+          <a href="infrastructure/index.html" class="card">
+            <div class="card__title">Infrastructure</div>
+            <div class="card__desc">
+              Environment variables, configuration patterns,
+              and app wiring across frameworks.
+            </div>
+            <div class="card__tags">
+              <span class="tag">config</span>
+              <span class="tag">devops</span>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section id="usage">
+        <h2>Usage as a submodule</h2>
+        <pre data-lang="bash"><code>git submodule add &lt;remote-url&gt; knowledge_bank
+
+# Update after upstream changes
+git submodule update --remote knowledge_bank</code></pre>
+        <p>
+          To navigate all knowledge, start from this <code>index.html</code> and follow theme links.
+          Each theme index lists its documents with short descriptions. Claude agents should read
+          <code>index.html</code> first, then follow links to the relevant theme.
+        </p>
+      </section>
+
+      <section id="conventions">
+        <h2>Authoring conventions</h2>
+        <ul>
+          <li>One HTML file per concern — never cram unrelated topics together.</li>
+          <li>Common patterns go in <code>common/</code>; version-locked content in <code>v6/</code>, <code>v7/</code>, etc.</li>
+          <li>Every <code>&lt;section&gt;</code> must have an <code>id</code> for deep-linking.</li>
+          <li>CSS path is always relative: count directory depth and adjust the <code>href</code> to <code>_shared/styles.css</code>.</li>
+          <li>No external CDN links — the repo must work offline.</li>
+          <li>Update the <code>version-badge</code> date when significantly editing a file.</li>
+          <li>Add new themes to this <code>index.html</code> card grid immediately.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

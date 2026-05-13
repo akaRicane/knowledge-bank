@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout page-layout--full">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">AdonisJS</span>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>AdonisJS</h1>
+        <p class="subtitle">
+          Full-stack Node.js framework (TypeScript). Covers the service layer, authentication,
+          ORM, mailer, validation, and testing. Common patterns apply across versions;
+          version-specific notes are in their own folders.
+        </p>
+        <div class="meta">
+          <span class="tag">typescript</span>
+          <span class="tag">node</span>
+          <span class="tag">lucid</span>
+          <span class="tag">inertia</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="common">
+        <h2>Common knowledge</h2>
+        <p>These documents describe patterns that apply broadly to AdonisJS projects, independent of the version in use.</p>
+        <ul class="doc-list">
+          <li class="doc-list__item">
+            <a href="common/auth.html">Authentication</a>
+            <span>Token-based (OAT) and cookie-based auth patterns, user lifecycle, roles.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="common/models.html">Models</a>
+            <span>Lucid ORM models, ULID public ID pattern, relationships, factories, seeders, migrations.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="common/services.html">Services</a>
+            <span>Backend service layer, API client services (UserApiService, ContentApiService), request pattern.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="common/mailer.html">Mailer</a>
+            <span>SMTP configuration, sending mail, MAILER_MOCK system, test faking and smoke tests.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="common/validation.html">Validation</a>
+            <span>VineJS validators, schema patterns, error response shapes.</span>
+          </li>
+          <li class="doc-list__item">
+            <a href="common/testing.html">Testing</a>
+            <span>Japa setup, DB truncation pattern, functional vs unit tests, factory usage, Inertia assertions.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section id="versions">
+        <h2>Version-specific</h2>
+        <ul class="doc-list">
+          <li class="doc-list__item">
+            <a href="v6/index.html">AdonisJS v6</a>
+            <span>Package versions, adonisrc.ts structure, path aliases, breaking changes from v5.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section id="two-app">
+        <h2>Two-app monorepo pattern</h2>
+        <p>
+          Projects may use two independent AdonisJS apps in the same monorepo:
+          a <strong>backend</strong> (REST API, token auth, PostgreSQL) and a
+          <strong>webapp</strong> (Inertia SSR, cookie auth, no database).
+          The webapp has no direct DB connection — it proxies all data through backend HTTP endpoints.
+        </p>
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            The auth models differ: the backend uses <code>@adonisjs/auth</code> with
+            <code>DbAccessTokensProvider</code> (OAT); the webapp uses cookie-based token forwarding
+            (no auth guard), storing the OAT in an <code>oat_token</code> httpOnly cookie.
+          </div>
+        </div>
+      </section>
+
+      <section id="conventions">
+        <h2>Shared conventions</h2>
+        <ul>
+          <li>Path aliases use the <code>#</code> prefix: <code>#models/user</code>, <code>#services/user</code>, etc.</li>
+          <li>Prettier: <code>@adonisjs/prettier-config</code> — run <code>prettier --write .</code> after editing.</li>
+          <li>ESLint: <code>@adonisjs/eslint-config</code> — run <code>eslint .</code> after editing.</li>
+          <li>Typecheck: <code>tsc --noEmit</code> after non-trivial changes.</li>
+          <li>Internal primary keys (<code>id</code>) are never exposed in API responses; use <code>publicId</code> (ULID).</li>
+          <li>Empty strings in request bodies are converted to <code>null</code> via <code>convertEmptyStringsToNull: true</code>.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Testing — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Testing</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#infrastructure">Infrastructure</a></li>
+        <li class="toc__item"><a href="#bootstrap">Bootstrap</a></li>
+        <li class="toc__item"><a href="#db-cleanup">DB cleanup pattern</a></li>
+        <li class="toc__item"><a href="#functional-tests">Functional tests</a></li>
+        <li class="toc__item"><a href="#unit-tests">Unit tests</a></li>
+        <li class="toc__item"><a href="#webapp-tests">Webapp tests</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-assertions">Inertia assertions</a></li>
+        <li class="toc__item toc__item--sub"><a href="#cookie-extraction">Cookie extraction</a></li>
+        <li class="toc__item"><a href="#running-tests">Running tests</a></li>
+        <li class="toc__item"><a href="#factory-usage">Factory usage</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Testing</h1>
+        <p class="subtitle">
+          Japa test infrastructure, DB cleanup patterns, functional and unit test conventions,
+          Inertia assertions, and running tests across the monorepo.
+        </p>
+        <div class="meta">
+          <span class="tag">japa</span>
+          <span class="tag">testing</span>
+          <span class="tag">functional</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="infrastructure">
+        <h2>Infrastructure</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Package</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>japa</code></td><td>Test runner</td></tr>
+              <tr><td><code>@japa/assert</code></td><td>Assertion library</td></tr>
+              <tr><td><code>@japa/api-client</code></td><td>HTTP client for functional tests</td></tr>
+              <tr><td><code>@japa/expect-type</code></td><td>Type-level assertions</td></tr>
+              <tr><td><code>@japa/plugin-adonisjs</code></td><td>AdonisJS integration (app boot, testUtils)</td></tr>
+              <tr><td><code>@adonisjs/inertia/plugins/api_client</code></td><td>Adds <code>.withInertia()</code> and <code>assertInertiaComponent()</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="bootstrap">
+        <h2>Bootstrap</h2>
+        <p><strong>File:</strong> <code>tests/bootstrap.ts</code></p>
+        <pre data-lang="typescript"><code>export const plugins = [
+  assert(),
+  apiClient(),
+  pluginAdonisJS(app),
+  expectTypeOf(),
+  // webapp only:
+  inertiaApiClient(app),
+]
+
+export const configureSuite = (suite) => {
+  if (['browser', 'functional', 'e2e'].includes(suite.name)) {
+    return suite.setup(() => testUtils.httpServer().start())
+  }
+}
+
+// backend bootstrap adds mailer mock hooks:
+export const runnerHooks = {
+  setup:    [async () => { if (process.env.MAILER_MOCK === 'true') mail.fake() }],
+  teardown: [async () => { mail.restore() }],
+}</code></pre>
+        <p>Functional tests auto-start the HTTP server. Unit tests do not.</p>
+
+        <h3>Session driver in tests</h3>
+        <p>Set <code>SESSION_DRIVER=memory</code> in the test <code>.env</code> to avoid cookie persistence between requests.</p>
+      </section>
+
+      <section id="db-cleanup">
+        <h2>DB cleanup pattern</h2>
+        <p>
+          Every functional test group truncates all tables <em>before</em> each test — not after.
+          This gives each test a clean database state and avoids flaky cleanup on test failure.
+        </p>
+        <pre data-lang="typescript"><code>test.group('Artists CRUD', (group) => {
+  // Runs before each individual test
+  group.each.setup(() => testUtils.db('app_db').truncate())
+
+  test('creates an artist', async ({ client }) => {
+    const response = await client.post('/artists').json({
+      fullName: 'Test Artist',
+    })
+    response.assertStatus(201)
+  })
+})</code></pre>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            Use the named connection string (<code>testUtils.db('app_db')</code>), not the default.
+            The connection name is defined in <code>config/database.ts</code>.
+          </div>
+        </div>
+      </section>
+
+      <section id="functional-tests">
+        <h2>Functional tests</h2>
+        <p>
+          Live in <code>tests/functional/</code>. Each test file targets one resource or feature.
+          Tests spin up the real HTTP server and make real database writes.
+        </p>
+        <pre data-lang="typescript"><code>test.group('User registration', (group) => {
+  group.each.setup(() => testUtils.db('app_db').truncate())
+
+  test('registers a user successfully', async ({ client }) => {
+    const response = await client.post('/user/register').json({
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'password123',
+    })
+    response.assertStatus(201)
+    response.assertBodyContains({ message: 'Successfully registered user' })
+  })
+
+  test('rejects duplicate email', async ({ client }) => {
+    const payload = { email: 'test@example.com', password: 'password123', confirmPassword: 'password123' }
+    await client.post('/user/register').json(payload)
+    const response = await client.post('/user/register').json(payload)
+    response.assertStatus(409)
+  })
+})</code></pre>
+
+        <h3>Authenticated requests in functional tests</h3>
+        <pre data-lang="typescript"><code>// Login first, capture the token
+const loginRes = await client.post('/user/login').json({ email, password })
+const token = loginRes.body().token.value
+
+// Use the token for authenticated calls
+const meRes = await client.post('/user/me').bearerToken(token)
+meRes.assertStatus(200)</code></pre>
+      </section>
+
+      <section id="unit-tests">
+        <h2>Unit tests</h2>
+        <p>Live in <code>tests/unit/</code>. No HTTP server, no database. Test pure logic.</p>
+        <pre data-lang="typescript"><code>// tests/unit/models/user.spec.ts
+test.group('User role methods', () => {
+  test('isAdmin returns true for admin role', ({ assert }) => {
+    const user = new User()
+    user.userRole = UserRole.ADMIN
+    assert.isTrue(user.isAdmin())
+    assert.isFalse(user.isModerator())
+  })
+})
+
+// tests/unit/validators/user.spec.ts
+test.group('createUserValidator', () => {
+  test('fails with mismatched passwords', async ({ assert }) => {
+    await assert.rejects(
+      () => createUserValidator.validate({
+        email: 'user@example.com',
+        password: 'password123',
+        confirmPassword: 'different',
+      })
+    )
+  })
+})</code></pre>
+      </section>
+
+      <section id="webapp-tests">
+        <h2>Webapp tests</h2>
+        <p>
+          The webapp has no database. Tests either create backend fixtures via direct <code>fetch</code>
+          calls to <code>BACKEND_API_URL</code>, or rely on seeded data. Fixtures must be cleaned up
+          in the test body.
+        </p>
+
+        <h3 id="inertia-assertions">Inertia assertions</h3>
+        <pre data-lang="typescript"><code>// Add .withInertia() to send X-Inertia: true header
+const response = await client.get(`/view/${artist.publicId}`).withInertia()
+
+response.assertStatus(200)
+response.assertInertiaComponent('viewer/Viewer')
+response.assertInertiaPropsContains({
+  response: { ok: true, data: { type: 'artist' } }
+})</code></pre>
+
+        <h3 id="cookie-extraction">Cookie extraction</h3>
+        <p>
+          Japa's API client does <strong>not</strong> automatically persist cookies between requests.
+          Extract the <code>oat_token</code> from the response body and pass it manually:
+        </p>
+        <pre data-lang="typescript"><code>const registerRes = await client.post('/user/register').json(payload)
+const oatToken = registerRes.body().token.value
+
+// Pass the token as a cookie for subsequent requests
+const meRes = await client.post('/user/me').withCookie('oat_token', oatToken)
+meRes.assertStatus(200)</code></pre>
+      </section>
+
+      <section id="running-tests">
+        <h2>Running tests</h2>
+        <pre data-lang="bash"><code># All tests (from project root)
+npm run test
+
+# Backend tests only
+cd backend && node ace test
+
+# Single suite
+node ace test --suite=functional
+node ace test --suite=unit
+
+# Single test by name
+node ace test -- --grep "registers a user"
+
+# Webapp tests (starts backend automatically)
+npm run test:webapp
+
+# Webapp tests directly (backend must already be running)
+cd webapp && node ace test</code></pre>
+      </section>
+
+      <section id="factory-usage">
+        <h2>Factory usage in tests</h2>
+        <p>
+          In functional tests, prefer <strong>direct model creation</strong> over factories for clarity
+          and speed. Factories are primarily designed for seeders.
+        </p>
+        <pre data-lang="typescript"><code>// Preferred in tests: direct creation
+const artist = await Artist.create({ fullName: 'Test Artist' })
+
+// Factories: use in seeders or when you need many records with realistic data
+const posts = await PostFactory.createMany(10)</code></pre>
+        <p>
+          The exception: use factories in tests when you need complex relationship fixtures
+          (e.g., a user with a profile) that would require multiple explicit create calls.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

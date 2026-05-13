@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Models — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Models</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#ulid-pattern">ULID public ID pattern</a></li>
+        <li class="toc__item"><a href="#serialization">Serialization rules</a></li>
+        <li class="toc__item"><a href="#relationships">Relationship patterns</a></li>
+        <li class="toc__item"><a href="#factories">Factories</a></li>
+        <li class="toc__item"><a href="#seeders">Seeders</a></li>
+        <li class="toc__item"><a href="#migrations">Migrations</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Models</h1>
+        <p class="subtitle">
+          Lucid ORM models, the ULID public ID pattern, relationship conventions,
+          factories, seeders, and migration ordering.
+        </p>
+        <div class="meta">
+          <span class="tag">lucid</span>
+          <span class="tag">orm</span>
+          <span class="tag">postgresql</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="ulid-pattern">
+        <h2>ULID public ID pattern</h2>
+        <p>
+          Every model has two identifiers: an internal auto-increment <code>id</code> (never exposed)
+          and a <code>publicId</code> — a 26-character <a href="https://github.com/ulid/spec">ULID</a>
+          used in all API responses and URLs.
+        </p>
+        <pre data-lang="typescript"><code>import { ulid } from 'ulid'
+
+@beforeCreate()
+static async generatePublicId(model: BaseModel): Promise<void> {
+  if (!model.publicId) {
+    model.publicId = ulid()
+  }
+}</code></pre>
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            The <code>if (!model.publicId)</code> guard means seeders can set a known ULID for
+            reproducible data, and the hook won't overwrite it.
+          </div>
+        </div>
+
+        <h3>Viewer endpoint pattern</h3>
+        <p>
+          A <code>GET /view/:publicId</code> endpoint can resolve any model by ULID, returning
+          <code>{ type: 'artist' | 'venue' | 'concert' | 'profile', data: ... }</code>.
+          This allows a single URL pattern to deep-link to any entity.
+        </p>
+      </section>
+
+      <section id="serialization">
+        <h2>Serialization rules</h2>
+        <p>Sensitive columns use <code>serializeAs: null</code> to exclude them from JSON output:</p>
+        <pre data-lang="typescript"><code>@column({ serializeAs: null })
+declare password: string
+
+@column({ serializeAs: null })
+declare emailVerificationToken: string | null
+
+@column({ serializeAs: null })
+declare passwordResetToken: string | null</code></pre>
+        <p>
+          Never expose <code>id</code>, <code>password</code>, token fields, or internal keys.
+          Always use <code>publicId</code> as the external identifier.
+        </p>
+      </section>
+
+      <section id="relationships">
+        <h2>Relationship patterns</h2>
+
+        <h3>hasOne / belongsTo with a non-PK foreign key</h3>
+        <p>
+          When the foreign key references a column other than <code>id</code>, both sides of the
+          relationship must declare it explicitly:
+        </p>
+        <pre data-lang="typescript"><code>// User model — has one Profile, linked by publicId (not id)
+@hasOne(() => Profile, {
+  localKey: 'publicId',
+  foreignKey: 'userPublicId',
+})
+declare profile: HasOne&lt;typeof Profile&gt;
+
+// Profile model — belongs to User
+@belongsTo(() => User, {
+  localKey: 'userPublicId',   // column on Profile
+  foreignKey: 'publicId',     // column on User
+})
+declare user: BelongsTo&lt;typeof User&gt;</code></pre>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            The <code>localKey</code>/<code>foreignKey</code> semantics are swapped between the two
+            sides. On <code>belongsTo</code>, <code>localKey</code> is the column on the child model and
+            <code>foreignKey</code> is the column on the parent.
+          </div>
+        </div>
+
+        <h3>manyToMany with pivot table</h3>
+        <pre data-lang="typescript"><code>@manyToMany(() => Artist, {
+  pivotTable: 'concert_artists',
+})
+declare artists: ManyToMany&lt;typeof Artist&gt;</code></pre>
+        <p>Pivot tables use composite primary keys: <code>(concert_id, artist_id)</code>. Both FKs cascade on delete.</p>
+
+        <h3>ON DELETE SET NULL</h3>
+        <p>
+          When a parent can be deleted independently of children (e.g., a venue can be deleted and
+          its concerts remain), use <code>ON DELETE SET NULL</code> on the FK rather than CASCADE.
+        </p>
+      </section>
+
+      <section id="factories">
+        <h2>Factories</h2>
+        <p>All factories live in <code>database/factories/</code>.</p>
+        <pre data-lang="typescript"><code>// Defining a factory
+export const UserFactory = factory
+  .define(User, ({ faker }) => ({
+    email: faker.internet.email(),
+    password: 'password123',
+    userRole: faker.helpers.enumValue(UserRole),
+    emailIsVerified: Math.random() > 0.8,
+  }))
+  .relation('profile', () => ProfileFactory)
+  .build()</code></pre>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pattern</th><th>Usage</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Conditional factory logic</td>
+                <td>Use <code>faker.helpers.maybe()</code> or inline <code>Math.random()</code> for optional fields (e.g., 20% chance closed venue).</td>
+              </tr>
+              <tr>
+                <td>Conditional factory logic</td>
+                <td>Use <code>faker.helpers.maybe()</code> or inline <code>Math.random()</code> for optional fields (e.g. 20% chance a record is archived).</td>
+              </tr>
+              <tr>
+                <td>Relation factories</td>
+                <td>Use <code>.relation('profile', () => ProfileFactory)</code> — call <code>.with('profile')</code> when creating.</td>
+              </tr>
+              <tr>
+                <td>Tests vs seeders</td>
+                <td>Factories are primarily for seeders. In tests, prefer direct model creation (<code>Post.create({...})</code>) for clarity.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="seeders">
+        <h2>Seeders</h2>
+        <p>
+          Always run through an orchestrator seeder to control dependency order.
+          Individual seeders are not order-safe on their own.
+        </p>
+        <pre data-lang="bash"><code># From project root (recommended)
+npm run seed
+
+# Or directly
+node ace db:seed --files="database/seeders/main_seeder.ts"</code></pre>
+
+        <h3>Orchestrator pattern</h3>
+        <pre data-lang="typescript"><code>// database/seeders/main_seeder.ts
+export default class MainSeeder extends BaseSeeder {
+  async run() {
+    await new UserSeeder(this.client).run()    // 1. users (no deps)
+    await new CategorySeeder(this.client).run()// 2. categories (no deps)
+    await new PostSeeder(this.client).run()    // 3. posts (needs users + categories)
+  }
+}</code></pre>
+        <p>Include at least one named/known fixture per seeder alongside random factory-generated records so tests can rely on predictable data.</p>
+      </section>
+
+      <section id="migrations">
+        <h2>Migrations</h2>
+        <p>
+          Use <code>naturalSort: true</code> in <code>config/database.ts</code> so migrations run in
+          timestamp order. Create migrations in dependency order — parent tables before child tables.
+        </p>
+
+        <h3>Enum types in PostgreSQL</h3>
+        <p>Create PostgreSQL enum types in the migration with raw queries, then use them in columns:</p>
+        <pre data-lang="typescript"><code>// In the migration up() method
+await db.rawQuery(`CREATE TYPE user_role AS ENUM ('admin', 'moderator', 'default')`)
+table.enum('user_role', null, {
+  useNative: true,
+  enumName: 'user_role',
+  existingType: true,
+}).defaultTo('default').notNullable()</code></pre>
+
+        <h3>Rollback safety</h3>
+        <p>Always implement the <code>down()</code> method. For enum types, drop them in the down migration:</p>
+        <pre data-lang="typescript"><code>async down() {
+  await schema.dropTable('users')
+  await db.rawQuery('DROP TYPE IF EXISTS user_role')
+}</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

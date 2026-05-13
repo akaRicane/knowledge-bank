@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validation — AdonisJS — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Validation</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#overview">Overview</a></li>
+        <li class="toc__item"><a href="#defining-validators">Defining validators</a></li>
+        <li class="toc__item"><a href="#common-rules">Common rules</a></li>
+        <li class="toc__item"><a href="#using-in-controllers">Using in controllers</a></li>
+        <li class="toc__item"><a href="#error-response">Error response shape</a></li>
+        <li class="toc__item"><a href="#testing-validators">Testing validators</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Validation</h1>
+        <p class="subtitle">
+          VineJS validators in AdonisJS. Defines schema, common rules, controller usage,
+          and the error response shape.
+        </p>
+        <div class="meta">
+          <span class="tag">adonis</span>
+          <span class="tag">vinejs</span>
+          <span class="tag">validation</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>
+          AdonisJS uses <a href="https://vinejs.dev">VineJS</a> for validation, registered via
+          <code>vinejs_provider</code> in <code>adonisrc.ts</code>. Validators live in
+          <code>app/validators/</code>, one file per domain (e.g., <code>user_validator.ts</code>).
+        </p>
+        <p>
+          Validation failures automatically return <code>422 Unprocessable Entity</code> with a
+          structured error body — no manual try/catch needed.
+        </p>
+      </section>
+
+      <section id="defining-validators">
+        <h2>Defining validators</h2>
+        <pre data-lang="typescript"><code>// app/validators/user_validator.ts
+import vine from '@vinejs/vine'
+
+export const createUserValidator = vine.compile(
+  vine.object({
+    email:           vine.string().email().normalizeEmail(),
+    password:        vine.string().minLength(8),
+    confirmPassword: vine.string().sameAs('password'),
+  })
+)
+
+export const loginValidator = vine.compile(
+  vine.object({
+    email:    vine.string().email(),
+    password: vine.string(),
+  })
+)
+
+export const updateProfileValidator = vine.compile(
+  vine.object({
+    displayName: vine.string().maxLength(100).nullable().optional(),
+    bio:         vine.string().maxLength(500).nullable().optional(),
+    avatarUrl:   vine.string().url().nullable().optional(),
+    city:        vine.string().nullable().optional(),
+    country:     vine.string().nullable().optional(),
+  })
+)</code></pre>
+
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            <code>vine.compile()</code> pre-compiles the schema for better performance.
+            Always use it for validators that will be called repeatedly.
+          </div>
+        </div>
+      </section>
+
+      <section id="common-rules">
+        <h2>Common rules</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rule</th><th>Usage</th></tr></thead>
+            <tbody>
+              <tr><td><code>.email()</code></td><td>Validate email format</td></tr>
+              <tr><td><code>.normalizeEmail()</code></td><td>Lowercase and normalize the email</td></tr>
+              <tr><td><code>.minLength(n)</code></td><td>String minimum length</td></tr>
+              <tr><td><code>.maxLength(n)</code></td><td>String maximum length</td></tr>
+              <tr><td><code>.sameAs('field')</code></td><td>Must match another field's value</td></tr>
+              <tr><td><code>.url()</code></td><td>Validate URL format</td></tr>
+              <tr><td><code>.nullable()</code></td><td>Allow <code>null</code> as a valid value</td></tr>
+              <tr><td><code>.optional()</code></td><td>Field can be absent from the request</td></tr>
+              <tr><td><code>.range([min, max])</code></td><td>Number within range (inclusive)</td></tr>
+              <tr><td><code>.enum(values)</code></td><td>Must be one of the given values</td></tr>
+              <tr><td><code>.array(vine.string())</code></td><td>Array of strings</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>nullable vs optional</h3>
+        <ul>
+          <li><code>.nullable()</code> — field must be present but can be <code>null</code>.</li>
+          <li><code>.optional()</code> — field can be absent entirely (undefined).</li>
+          <li><code>.nullable().optional()</code> — field can be absent <em>or</em> null (partial update pattern).</li>
+        </ul>
+      </section>
+
+      <section id="using-in-controllers">
+        <h2>Using in controllers</h2>
+        <pre data-lang="typescript"><code>import { createUserValidator } from '#validators/user_validator'
+
+// In a controller method:
+async register({ request, response }: HttpContext) {
+  // Throws and returns 422 automatically if validation fails
+  const payload = await request.validateUsing(createUserValidator)
+
+  // payload is fully typed based on the schema
+  const user = await this.userService.create(payload)
+  return response.created({ user })
+}</code></pre>
+
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            <code>convertEmptyStringsToNull: true</code> is set in <code>config/bodyparser.ts</code>.
+            This means empty string inputs from forms are automatically converted to <code>null</code>
+            before reaching validators — pair this with <code>.nullable()</code> on optional fields.
+          </div>
+        </div>
+      </section>
+
+      <section id="error-response">
+        <h2>Error response shape</h2>
+        <p>Validation failures return <code>422</code> with this structure:</p>
+        <pre data-lang="json"><code>{
+  "errors": [
+    {
+      "field": "email",
+      "rule": "email",
+      "message": "The email field must be a valid email address"
+    },
+    {
+      "field": "password",
+      "rule": "minLength",
+      "message": "The password field must have at least 8 characters"
+    }
+  ]
+}</code></pre>
+        <p>Test for validation errors by asserting <code>response.status === 422</code> and inspecting <code>response.body().errors</code>.</p>
+      </section>
+
+      <section id="testing-validators">
+        <h2>Testing validators</h2>
+        <p>Unit-test validators by calling <code>validate()</code> directly — no HTTP layer needed:</p>
+        <pre data-lang="typescript"><code>import { createUserValidator } from '#validators/user_validator'
+
+test('valid data passes', async ({ assert }) => {
+  const output = await createUserValidator.validate({
+    email: 'user@example.com',
+    password: 'secret123',
+    confirmPassword: 'secret123',
+  })
+  assert.equal(output.email, 'user@example.com')
+})
+
+test('short password fails', async ({ assert }) => {
+  await assert.rejects(
+    () => createUserValidator.validate({
+      email: 'user@example.com',
+      password: 'short',
+      confirmPassword: 'short',
+    }),
+    /minLength/
+  )
+})</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

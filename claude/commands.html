@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commands — Claude Tooling — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="index.html">Claude Tooling</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Commands</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#overview">Overview</a></li>
+        <li class="toc__item"><a href="#feature-dev">feature-dev</a></li>
+        <li class="toc__item"><a href="#review-pr">review-pr</a></li>
+        <li class="toc__item"><a href="#code-review">code-review</a></li>
+        <li class="toc__item"><a href="#commit">commit</a></li>
+        <li class="toc__item"><a href="#commit-push-pr">commit-push-pr</a></li>
+        <li class="toc__item"><a href="#clean-gone">clean_gone</a></li>
+        <li class="toc__item"><a href="#file-template">File template</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>Commands</h1>
+        <p class="subtitle">
+          Slash commands registered in <code>.claude/commands/</code>.
+          Invoked with <code>/command-name</code> in Claude Code.
+        </p>
+        <div class="meta">
+          <span class="tag">commands</span>
+          <span class="tag">claude-code</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#feature-dev"><code>/feature-dev</code></a></td><td>7-phase guided feature development</td></tr>
+              <tr><td><a href="#review-pr"><code>/review-pr</code></a></td><td>Flexible multi-aspect PR review</td></tr>
+              <tr><td><a href="#code-review"><code>/code-review</code></a></td><td>GitHub PR review with inline comments</td></tr>
+              <tr><td><a href="#commit"><code>/commit</code></a></td><td>Create a git commit</td></tr>
+              <tr><td><a href="#commit-push-pr"><code>/commit-push-pr</code></a></td><td>Commit + push + open PR</td></tr>
+              <tr><td><a href="#clean-gone"><code>/clean_gone</code></a></td><td>Clean up [gone] local branches</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="feature-dev">
+        <h2>feature-dev</h2>
+        <p>
+          Guided feature development through 7 structured phases.
+          Prioritizes understanding existing code before writing new code.
+          Uses <code>TodoWrite</code> to track progress throughout.
+        </p>
+        <pre data-lang="text"><code>/feature-dev [optional feature description]</code></pre>
+
+        <h3>7-phase workflow</h3>
+        <ol>
+          <li>
+            <strong>Discovery</strong> — Create todo list. Ask clarifying questions if the feature is unclear.
+            Summarize understanding and confirm with user.
+          </li>
+          <li>
+            <strong>Codebase exploration</strong> — Launch 2–3 <code>code-explorer</code> agents in parallel
+            (different aspects). Read all identified files. Present findings.
+          </li>
+          <li>
+            <strong>Clarifying questions</strong> — Review findings, identify underspecified aspects,
+            present all questions to user, wait for answers.
+          </li>
+          <li>
+            <strong>Architecture design</strong> — Launch 2–3 <code>code-architect</code> agents with different
+            focuses. Present summary, trade-offs, and recommendation. Ask user to pick an approach.
+          </li>
+          <li>
+            <strong>Implementation</strong> — Wait for explicit approval. Read all relevant files. Implement.
+            Update todos as work progresses.
+          </li>
+          <li>
+            <strong>Quality review</strong> — Launch <code>code-reviewer</code> agents. Present findings.
+            Ask what to fix.
+          </li>
+          <li>
+            <strong>Summary</strong> — Mark todos complete. Summarize what was built, decisions made,
+            files changed, and next steps.
+          </li>
+        </ol>
+      </section>
+
+      <section id="review-pr">
+        <h2>review-pr</h2>
+        <p>
+          Runs specialized review agents against the current branch's changes.
+          Can run all reviews or specific aspects.
+        </p>
+        <pre data-lang="text"><code>/review-pr [aspects]
+
+# Examples:
+/review-pr                   # all aspects (default)
+/review-pr tests errors      # specific aspects
+/review-pr code simplify     # two aspects</code></pre>
+
+        <h3>Available aspects</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Aspect</th><th>Agent used</th><th>What it checks</th></tr></thead>
+            <tbody>
+              <tr><td><code>comments</code></td><td>comment-analyzer</td><td>Code comment accuracy and long-term value</td></tr>
+              <tr><td><code>tests</code></td><td>pr-test-analyzer</td><td>Test coverage quality and gaps</td></tr>
+              <tr><td><code>errors</code></td><td>silent-failure-hunter</td><td>Silent failures and bad error handling</td></tr>
+              <tr><td><code>types</code></td><td>type-design-analyzer</td><td>Type design and invariants (if new types added)</td></tr>
+              <tr><td><code>code</code></td><td>code-reviewer</td><td>Project guidelines compliance and bugs</td></tr>
+              <tr><td><code>simplify</code></td><td>code-simplifier</td><td>Simplification opportunities</td></tr>
+              <tr><td><code>all</code></td><td>all of the above</td><td>Full review</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Output</h3>
+        <p>Findings aggregated and organized by severity: Critical → Important → Suggestions → Strengths.</p>
+      </section>
+
+      <section id="code-review">
+        <h2>code-review</h2>
+        <p>
+          Reviews a GitHub PR using multi-agent validation. Designed to minimize false positives —
+          only reports issues with high confidence that are not pre-existing.
+        </p>
+        <pre data-lang="text"><code>/code-review                  # review and display findings
+/code-review --comment        # review and post inline GitHub comments</code></pre>
+
+        <h3>Workflow</h3>
+        <ol>
+          <li>Check if PR is closed, draft, or already reviewed — stop if so.</li>
+          <li>Collect all relevant CLAUDE.md files (root + directories with changed files).</li>
+          <li>View PR and summarize changes.</li>
+          <li>Launch 4 agents in parallel: 2× CLAUDE.md compliance audit (sonnet), 1× bug scan (opus), 1× security + logic (opus).</li>
+          <li>For each high-signal issue, launch a validation subagent to confirm it's real.</li>
+          <li>Filter to validated issues only.</li>
+          <li>If <code>--comment</code>: post inline GitHub comments using suggestion blocks for small fixes.</li>
+        </ol>
+
+        <h3>High-signal criteria</h3>
+        <ul>
+          <li>Code will fail to compile or parse.</li>
+          <li>Code will definitely produce wrong results.</li>
+          <li>Clear, unambiguous CLAUDE.md violations.</li>
+        </ul>
+
+        <h3>Not reported</h3>
+        <ul>
+          <li>Pre-existing issues</li>
+          <li>Code style concerns</li>
+          <li>Issues that depend on specific inputs</li>
+          <li>Things a linter will catch</li>
+          <li>Issues silenced with lint-ignore</li>
+        </ul>
+
+        <h3>Required tools</h3>
+        <p><code>gh pr view</code>, <code>gh pr diff</code>, <code>gh pr comment</code> — GitHub CLI must be authenticated.</p>
+      </section>
+
+      <section id="commit">
+        <h2>commit</h2>
+        <p>Creates a git commit from current changes in a single operation.</p>
+        <pre data-lang="text"><code>/commit</code></pre>
+
+        <h3>What it does</h3>
+        <ol>
+          <li>Show <code>git status</code></li>
+          <li>Show staged and unstaged changes (<code>git diff HEAD</code>)</li>
+          <li>Show current branch and recent commits</li>
+          <li>Create a single commit with an appropriate message</li>
+        </ol>
+        <p>All steps execute in one message. Does not push.</p>
+
+        <h3>Allowed tools</h3>
+        <p><code>Bash(git add:*)</code>, <code>Bash(git status:*)</code>, <code>Bash(git commit:*)</code></p>
+      </section>
+
+      <section id="commit-push-pr">
+        <h2>commit-push-pr</h2>
+        <p>Commits, pushes, and opens a GitHub PR in a single operation.</p>
+        <pre data-lang="text"><code>/commit-push-pr</code></pre>
+
+        <h3>What it does</h3>
+        <ol>
+          <li>Show <code>git status</code> and diff</li>
+          <li>Create a new branch if currently on <code>main</code></li>
+          <li>Create a commit with an appropriate message</li>
+          <li>Push branch to origin with <code>-u</code></li>
+          <li>Create a PR via <code>gh pr create</code></li>
+        </ol>
+        <p>All steps execute in one message.</p>
+
+        <h3>Allowed tools</h3>
+        <p><code>Bash(git checkout --branch:*)</code>, <code>Bash(git add:*)</code>, <code>Bash(git status:*)</code>, <code>Bash(git push:*)</code>, <code>Bash(git commit:*)</code>, <code>Bash(gh pr create:*)</code></p>
+      </section>
+
+      <section id="clean-gone">
+        <h2>clean_gone</h2>
+        <p>
+          Cleans up local git branches marked as <code>[gone]</code> — branches whose remote
+          counterpart has been deleted (e.g. after a merged PR). Also removes associated worktrees.
+        </p>
+        <pre data-lang="text"><code>/clean_gone</code></pre>
+
+        <h3>What it does</h3>
+        <ol>
+          <li>List branches with <code>git branch -v</code> to identify <code>[gone]</code> status.</li>
+          <li>List worktrees with <code>git worktree list</code>.</li>
+          <li>For each <code>[gone]</code> branch: remove the associated worktree (if any), then delete the local branch.</li>
+          <li>Report what was removed.</li>
+        </ol>
+      </section>
+
+      <section id="file-template">
+        <h2>Command file template</h2>
+        <p>Place in <code>.claude/commands/my-command.md</code>:</p>
+        <pre data-lang="markdown"><code>---
+description: What this command does — shown in Claude Code's command list
+argument-hint: [optional-argument]
+allowed-tools:
+  - Bash(git status:*)
+  - Bash(git commit:*)
+---
+
+# My Command
+
+Instructions for Claude Code to follow when the user runs /my-command.
+
+1. First step
+2. Second step
+3. ...
+
+Be specific about what tools to call and in what order.
+All steps should execute in a single message where possible.</code></pre>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
