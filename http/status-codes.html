@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Status Codes — HTTP — Knowledge Bank</title>
+  <link rel="stylesheet" href="../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="index.html">HTTP</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">Status Codes</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#overview">Overview</a></li>
+        <li class="toc__item"><a href="#2xx">2xx Success</a></li>
+        <li class="toc__item toc__item--sub"><a href="#200">200 OK</a></li>
+        <li class="toc__item toc__item--sub"><a href="#201">201 Created</a></li>
+        <li class="toc__item toc__item--sub"><a href="#202">202 Accepted</a></li>
+        <li class="toc__item toc__item--sub"><a href="#204">204 No Content</a></li>
+        <li class="toc__item toc__item--sub"><a href="#206">206 Partial Content</a></li>
+        <li class="toc__item"><a href="#3xx">3xx Redirects</a></li>
+        <li class="toc__item"><a href="#4xx">4xx Client Errors</a></li>
+        <li class="toc__item toc__item--sub"><a href="#400">400 Bad Request</a></li>
+        <li class="toc__item toc__item--sub"><a href="#401">401 Unauthorized</a></li>
+        <li class="toc__item toc__item--sub"><a href="#403">403 Forbidden</a></li>
+        <li class="toc__item toc__item--sub"><a href="#404">404 Not Found</a></li>
+        <li class="toc__item toc__item--sub"><a href="#405">405 Method Not Allowed</a></li>
+        <li class="toc__item toc__item--sub"><a href="#409">409 Conflict</a></li>
+        <li class="toc__item toc__item--sub"><a href="#410">410 Gone</a></li>
+        <li class="toc__item toc__item--sub"><a href="#422">422 Unprocessable Entity</a></li>
+        <li class="toc__item toc__item--sub"><a href="#429">429 Too Many Requests</a></li>
+        <li class="toc__item"><a href="#5xx">5xx Server Errors</a></li>
+        <li class="toc__item toc__item--sub"><a href="#500">500 Internal Server Error</a></li>
+        <li class="toc__item toc__item--sub"><a href="#502">502 Bad Gateway</a></li>
+        <li class="toc__item toc__item--sub"><a href="#503">503 Service Unavailable</a></li>
+        <li class="toc__item toc__item--sub"><a href="#504">504 Gateway Timeout</a></li>
+        <li class="toc__item"><a href="#error-body">Error response body</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>HTTP Status Codes</h1>
+        <p class="subtitle">When to use each code, what it means to clients, and the mistakes to avoid.</p>
+        <div class="meta">
+          <span class="tag">http</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>
+          Status codes communicate the outcome of a request at the protocol level.
+          Clients — browsers, mobile apps, API consumers — rely on these codes to decide
+          whether to retry, redirect, prompt for login, or surface an error.
+          Using the wrong code forces clients to inspect the body instead of the header.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Range</th><th>Class</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>1xx</code></td><td>Informational</td><td>Request received, continuing process.</td></tr>
+              <tr><td><code>2xx</code></td><td>Success</td><td>Request understood and fulfilled.</td></tr>
+              <tr><td><code>3xx</code></td><td>Redirection</td><td>Further action needed to complete the request.</td></tr>
+              <tr><td><code>4xx</code></td><td>Client error</td><td>The request is wrong — fix it before retrying.</td></tr>
+              <tr><td><code>5xx</code></td><td>Server error</td><td>The server failed — the client can retry later.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="2xx">
+        <h2>2xx — Success</h2>
+
+        <h3 id="200">200 OK</h3>
+        <p>The request succeeded. The response body contains the result.</p>
+        <ul>
+          <li>Use for successful GET, PATCH, and PUT responses that include a body.</li>
+          <li>Also use for action-style POST endpoints that return data (login, search, etc.).</li>
+          <li>Do <strong>not</strong> use for resource creation — use <code>201</code> instead.</li>
+        </ul>
+
+        <h3 id="201">201 Created</h3>
+        <p>A new resource was successfully created.</p>
+        <ul>
+          <li>Always pair with a <code>Location</code> header pointing to the new resource URL.</li>
+          <li>The response body can include the created resource or be empty.</li>
+          <li>Only for POST (and PUT when creating via upsert).</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 201 Created
+Location: /posts/01jwb3k5n2
+Content-Type: application/json
+
+{ "id": "01jwb3k5n2", "title": "Hello world" }</code></pre>
+
+        <h3 id="202">202 Accepted</h3>
+        <p>The request was received and will be processed asynchronously. The result is not yet known.</p>
+        <ul>
+          <li>Use when work is queued (background jobs, email delivery, exports).</li>
+          <li>Include a way for the client to check status: a polling URL in <code>Location</code> or a job ID in the body.</li>
+          <li>Do not imply success — the job could still fail.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 202 Accepted
+Content-Type: application/json
+
+{ "jobId": "job_abc123", "statusUrl": "/jobs/job_abc123" }</code></pre>
+
+        <h3 id="204">204 No Content</h3>
+        <p>The request succeeded, and there is no body to return.</p>
+        <ul>
+          <li>Typical for DELETE and for PUT/PATCH when you don't need to return the updated resource.</li>
+          <li>The response must have no body — not even an empty JSON object.</li>
+          <li>Also used for OPTIONS preflight responses.</li>
+        </ul>
+
+        <h3 id="206">206 Partial Content</h3>
+        <p>The server is returning only part of the resource, as requested by a <code>Range</code> header.</p>
+        <ul>
+          <li>Used for media streaming, large file downloads, and resumable uploads.</li>
+          <li>Requires a <code>Content-Range</code> header in the response.</li>
+          <li>Rarely needed in application APIs — more common in file-serving infrastructure.</li>
+        </ul>
+      </section>
+
+      <section id="3xx">
+        <h2>3xx — Redirects</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Code</th><th>Name</th><th>Method preserved?</th><th>Use case</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>301</code></td>
+                <td>Moved Permanently</td>
+                <td>No — GET only</td>
+                <td>Resource has permanently moved. Browsers and search engines update the cached URL.</td>
+              </tr>
+              <tr>
+                <td><code>302</code></td>
+                <td>Found</td>
+                <td>No — GET only</td>
+                <td>Temporary redirect. Browsers always GET the new URL regardless of the original method.</td>
+              </tr>
+              <tr>
+                <td><code>303</code></td>
+                <td>See Other</td>
+                <td>No — always GET</td>
+                <td>After a POST, redirect to a result page. The browser GETs the new URL (Post/Redirect/Get pattern).</td>
+              </tr>
+              <tr>
+                <td><code>304</code></td>
+                <td>Not Modified</td>
+                <td>—</td>
+                <td>Conditional GET — client's cached version is still valid. No body returned.</td>
+              </tr>
+              <tr>
+                <td><code>307</code></td>
+                <td>Temporary Redirect</td>
+                <td>Yes</td>
+                <td>Temporary redirect that preserves the original method (POST stays POST).</td>
+              </tr>
+              <tr>
+                <td><code>308</code></td>
+                <td>Permanent Redirect</td>
+                <td>Yes</td>
+                <td>Permanent redirect preserving the method. Use instead of 301 for non-GET redirects.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            <strong>301 / 302 change the method to GET.</strong> If you redirect a POST and the destination must also receive a POST, use 307 (temporary) or 308 (permanent) instead.
+          </div>
+        </div>
+      </section>
+
+      <section id="4xx">
+        <h2>4xx — Client Errors</h2>
+        <p>
+          The request is wrong. The client should fix the request before retrying.
+          Do not retry 4xx responses automatically — they will fail again.
+        </p>
+
+        <h3 id="400">400 Bad Request</h3>
+        <p>The request is malformed and the server cannot parse or process it.</p>
+        <ul>
+          <li>Invalid JSON syntax, missing <code>Content-Type</code> header, unparseable query params.</li>
+          <li>Do <strong>not</strong> use for business logic failures (wrong password, duplicate email) — use <code>401</code>, <code>409</code>, or <code>422</code>.</li>
+          <li>Use 400 for structural problems; use 422 for semantic/validation problems.</li>
+        </ul>
+
+        <h3 id="401">401 Unauthorized</h3>
+        <p>Authentication is required and has failed or was not provided.</p>
+        <ul>
+          <li>The name is misleading — it means "unauthenticated", not "unauthorized".</li>
+          <li>Return a <code>WWW-Authenticate</code> header indicating the auth scheme.</li>
+          <li>The client should prompt the user to log in and retry.</li>
+          <li>Do <strong>not</strong> use when the user is logged in but lacks permission — use <code>403</code>.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="api"
+Content-Type: application/json
+
+{ "error": "Authentication required." }</code></pre>
+
+        <h3 id="403">403 Forbidden</h3>
+        <p>The client is authenticated but does not have permission to access this resource.</p>
+        <ul>
+          <li>The user is known, but not allowed. Do not reveal whether the resource exists if that would leak information — prefer <code>404</code> in sensitive contexts.</li>
+          <li>Retrying with the same credentials will not help.</li>
+        </ul>
+
+        <h3 id="404">404 Not Found</h3>
+        <p>The requested resource does not exist at this URL.</p>
+        <ul>
+          <li>Also use to hide the existence of a resource for security (instead of <code>403</code>).</li>
+          <li>On a route that previously existed but was removed, consider <code>410 Gone</code> instead.</li>
+          <li>Return a helpful body explaining what wasn't found when possible.</li>
+        </ul>
+
+        <h3 id="405">405 Method Not Allowed</h3>
+        <p>The HTTP method used is not supported for this endpoint.</p>
+        <ul>
+          <li>Must include an <code>Allow</code> header listing the supported methods.</li>
+          <li>Usually generated automatically by the router — check your framework's behavior.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 405 Method Not Allowed
+Allow: GET, POST, HEAD</code></pre>
+
+        <h3 id="409">409 Conflict</h3>
+        <p>The request conflicts with the current state of the resource.</p>
+        <ul>
+          <li>Duplicate unique value (email already registered, slug taken).</li>
+          <li>Optimistic concurrency conflict (stale <code>ETag</code> or version mismatch).</li>
+          <li>Trying to delete a resource that has dependent records.</li>
+          <li>The body should explain the conflict so the client can resolve it.</li>
+        </ul>
+
+        <h3 id="410">410 Gone</h3>
+        <p>The resource existed but has been permanently removed and will not be available again.</p>
+        <ul>
+          <li>More informative than <code>404</code> — clients and search engines should remove any references.</li>
+          <li>Use for soft-deleted or retired resources when you want to signal permanence.</li>
+        </ul>
+
+        <h3 id="422">422 Unprocessable Entity</h3>
+        <p>The request body is syntactically valid but fails business validation rules.</p>
+        <ul>
+          <li>The right code for form/API validation errors — not <code>400</code>.</li>
+          <li>Return a structured error body with field-level details.</li>
+          <li>The client must fix the input before retrying.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{
+  "errors": [
+    { "field": "email", "message": "Email is already in use." },
+    { "field": "password", "message": "Password must be at least 8 characters." }
+  ]
+}</code></pre>
+
+        <h3 id="429">429 Too Many Requests</h3>
+        <p>The client has sent too many requests in a given time window (rate limiting).</p>
+        <ul>
+          <li>Include a <code>Retry-After</code> header (seconds or an HTTP date) so the client knows when to retry.</li>
+          <li>Optionally include <code>X-RateLimit-Limit</code> and <code>X-RateLimit-Remaining</code> headers.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0</code></pre>
+      </section>
+
+      <section id="5xx">
+        <h2>5xx — Server Errors</h2>
+        <p>
+          The server failed to fulfill a valid request. The client is not at fault.
+          5xx responses are safe to retry (with backoff) unless the operation is non-idempotent.
+        </p>
+
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            Never expose internal error details (stack traces, SQL errors, file paths) in 5xx responses.
+            Log them server-side and return a generic message to the client.
+          </div>
+        </div>
+
+        <h3 id="500">500 Internal Server Error</h3>
+        <p>An unexpected error occurred on the server. It's a catch-all for unhandled exceptions.</p>
+        <ul>
+          <li>Log the full error server-side with a correlation ID.</li>
+          <li>Return the correlation ID in the response so it can be referenced in support.</li>
+          <li>Do not expose stack traces or implementation details.</li>
+        </ul>
+        <pre data-lang="http"><code>HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+
+{ "error": "An unexpected error occurred.", "ref": "err_01jwb3k" }</code></pre>
+
+        <h3 id="502">502 Bad Gateway</h3>
+        <p>The server, acting as a gateway or proxy, received an invalid response from an upstream server.</p>
+        <ul>
+          <li>Indicates the upstream service (API, microservice, database proxy) is down or returning garbage.</li>
+          <li>The gateway itself is functional — the upstream is not.</li>
+          <li>Usually generated by a reverse proxy (nginx, Caddy) rather than application code.</li>
+        </ul>
+
+        <h3 id="503">503 Service Unavailable</h3>
+        <p>The server is temporarily unavailable — overloaded or undergoing maintenance.</p>
+        <ul>
+          <li>Include a <code>Retry-After</code> header if the downtime is known.</li>
+          <li>Use during planned maintenance windows or circuit-breaker open states.</li>
+          <li>Clients and load balancers use this to route traffic away from the failing instance.</li>
+        </ul>
+
+        <h3 id="504">504 Gateway Timeout</h3>
+        <p>The gateway or proxy timed out waiting for an upstream response.</p>
+        <ul>
+          <li>The upstream server did not respond within the timeout window.</li>
+          <li>Distinct from 503: the server is reachable, but too slow.</li>
+          <li>Consider whether the original request was processed — retrying a non-idempotent operation may cause a duplicate.</li>
+        </ul>
+      </section>
+
+      <section id="error-body">
+        <h2>Error response body</h2>
+        <p>
+          Adopt a consistent error body shape across your API. Clients should be able to
+          programmatically extract the error without parsing a string.
+        </p>
+
+        <h3>Recommended shape</h3>
+        <pre data-lang="json"><code>{
+  "error": "Human-readable summary.",
+  "code":  "MACHINE_READABLE_CODE",
+  "fields": {
+    "email": ["Email is already in use."],
+    "name":  ["Name is required."]
+  },
+  "ref": "err_01jwb3k"
+}</code></pre>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Field</th><th>Required</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>error</code></td><td>Yes</td><td>Short human-readable summary. Safe to display to users.</td></tr>
+              <tr><td><code>code</code></td><td>Recommended</td><td>Machine-readable constant for programmatic handling (e.g. <code>EMAIL_TAKEN</code>).</td></tr>
+              <tr><td><code>fields</code></td><td>For 422 only</td><td>Field-level validation messages. Key = field name, value = array of messages.</td></tr>
+              <tr><td><code>ref</code></td><td>For 5xx only</td><td>Correlation ID for log lookup. Never expose stack traces here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Quick reference by code</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Return body?</th><th>Include <code>fields</code>?</th></tr></thead>
+            <tbody>
+              <tr><td><code>200</code></td><td>Yes — the resource</td><td>No</td></tr>
+              <tr><td><code>201</code></td><td>Optional — the created resource</td><td>No</td></tr>
+              <tr><td><code>204</code></td><td>No</td><td>No</td></tr>
+              <tr><td><code>400</code></td><td>Yes — describe the malformed input</td><td>Sometimes</td></tr>
+              <tr><td><code>401</code></td><td>Yes — short message</td><td>No</td></tr>
+              <tr><td><code>403</code></td><td>Yes — short message</td><td>No</td></tr>
+              <tr><td><code>404</code></td><td>Yes — what wasn't found</td><td>No</td></tr>
+              <tr><td><code>409</code></td><td>Yes — describe the conflict</td><td>Sometimes</td></tr>
+              <tr><td><code>422</code></td><td>Yes — full validation errors</td><td>Yes</td></tr>
+              <tr><td><code>429</code></td><td>Yes — rate limit info</td><td>No</td></tr>
+              <tr><td><code>500</code></td><td>Yes — generic message + ref ID</td><td>No</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
