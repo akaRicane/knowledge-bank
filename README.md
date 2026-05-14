@@ -8,7 +8,7 @@ Designed to be used as a **git submodule** across projects.
 
 ```bash
 # Add to a project
-git submodule add <remote-url> knowledge_bank
+git submodule add https://github.com/akaRicane/knowledge-bank knowledge_bank
 
 # Update after upstream changes
 git submodule update --remote knowledge_bank
@@ -26,6 +26,7 @@ Project-agnostic patterns are in `knowledge_bank/`. Start from `knowledge_bank/i
 ```
 index.html          ← global entry point
 ├── claude/         ← agents, commands, hooks, skills for Claude Code
+├── http/           ← HTTP methods and status codes
 ├── adonis/         ← AdonisJS patterns (common + v6)
 ├── design/         ← project-specific design direction (placeholder)
 └── infrastructure/ ← project-specific infra config (placeholder)
