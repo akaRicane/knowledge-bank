@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdonisJS v7 — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">AdonisJS</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">v7</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#package-versions">Package versions</a></li>
+        <li class="toc__item"><a href="#requirements">System requirements</a></li>
+        <li class="toc__item"><a href="#adonisrc">adonisrc.ts changes</a></li>
+        <li class="toc__item toc__item--sub"><a href="#hooks">Hooks restructure</a></li>
+        <li class="toc__item toc__item--sub"><a href="#test-glob">Test glob pattern</a></li>
+        <li class="toc__item"><a href="#ts-exec">ts-node → ts-exec</a></li>
+        <li class="toc__item"><a href="#encryption">Encryption config</a></li>
+        <li class="toc__item"><a href="#inertia-v4">Inertia v4 changes</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-middleware">Custom middleware</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-files">File structure</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-config">Config cleanup</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-tsconfig">tsconfig.inertia.json</a></li>
+        <li class="toc__item"><a href="#other-packages">Other package changes</a></li>
+        <li class="toc__item"><a href="#new-conventions">New conventions</a></li>
+        <li class="toc__item"><a href="#migration-guide">Migration guide</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>AdonisJS v7</h1>
+        <p class="subtitle">
+          Version-specific notes: package versions, breaking changes from v6,
+          <code>adonisrc.ts</code> restructure, Inertia v4 migration, and new conventions.
+          Released February 25, 2026.
+        </p>
+        <div class="meta">
+          <span class="tag version-tag" style="background:#0d2010;color:#48bb78;border-color:#48bb78;">v7</span>
+          <span class="tag">typescript</span>
+          <span class="version-badge">Last updated: 2026-05-14</span>
+        </div>
+      </header>
+
+      <section id="package-versions">
+        <h2>Package versions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Package</th><th>v6</th><th>v7</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>@adonisjs/core</code></td><td>^6.x</td><td>^7.3.2</td><td>Framework core</td></tr>
+              <tr><td><code>@adonisjs/lucid</code></td><td>^21.x</td><td>^22.x</td><td>Lucid ORM</td></tr>
+              <tr><td><code>@adonisjs/auth</code></td><td>^9.x</td><td>^10.x</td><td>Authentication guards</td></tr>
+              <tr><td><code>@adonisjs/mail</code></td><td>^9.x</td><td>^10.x</td><td>Mailer service</td></tr>
+              <tr><td><code>@adonisjs/inertia</code></td><td>^3.x</td><td>^4.x</td><td>Inertia.js adapter — HIGH impact</td></tr>
+              <tr><td><code>@adonisjs/vite</code></td><td>^4.x</td><td>^5.x</td><td>Vite integration (webapp)</td></tr>
+              <tr><td><code>@adonisjs/session</code></td><td>^7.x</td><td>^8.x</td><td>Cookie sessions (webapp)</td></tr>
+              <tr><td><code>@adonisjs/shield</code></td><td>^8.x</td><td>^9.x</td><td>CSRF, HSTS (webapp)</td></tr>
+              <tr><td><code>@adonisjs/static</code></td><td>^1.x</td><td>^2.x</td><td>Static file serving (webapp)</td></tr>
+              <tr><td><code>@adonisjs/cors</code></td><td>^2.x</td><td>^3.x</td><td>CORS middleware</td></tr>
+              <tr><td><code>@vinejs/vine</code></td><td>^3.x</td><td>^4.x</td><td>Validation — minor bump, mostly additive</td></tr>
+              <tr><td><code>@japa/plugin-adonisjs</code></td><td>^4.x</td><td>^5.x</td><td>Test plugin — no breaking changes</td></tr>
+              <tr><td><code>vite</code></td><td>^6.x</td><td>^7.x</td><td>Bundler (webapp)</td></tr>
+              <tr><td><code>typescript</code></td><td>~5.8</td><td>~5.8 / 6.x</td><td>Both supported; v6.x optional</td></tr>
+              <tr><td><code>@poppinss/ts-exec</code></td><td>—</td><td>required</td><td>Replaces <code>ts-node-maintained</code></td></tr>
+              <tr><td><code>youch</code></td><td>—</td><td>dev dep</td><td>New error page renderer (dev only)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="requirements">
+        <h2>System requirements</h2>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            <strong>Node.js 24+ is required.</strong> v7 will not boot on Node.js 22 or earlier.
+            Update all environments — local, CI, and production — before upgrading.
+          </div>
+        </div>
+        <ul>
+          <li><strong>Node.js:</strong> 24 LTS or later (<code>nvm install --lts &amp;&amp; nvm use --lts</code>)</li>
+          <li><strong>TypeScript:</strong> 5.8+ (6.x supported but optional)</li>
+          <li><strong>ESLint:</strong> 10.x (if using <code>@adonisjs/eslint-config</code>)</li>
+        </ul>
+      </section>
+
+      <section id="adonisrc">
+        <h2>adonisrc.ts changes</h2>
+
+        <h3 id="hooks">Hooks restructure</h3>
+        <p>
+          v7 introduces a mandatory <code>init</code> hooks array and renames the build hook.
+          The <code>assetsBundler</code> property is removed entirely.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// v6
+export default defineConfig({
+  assetsBundler: false,
+  hooks: {
+    onBuildStarting: [() => import('@adonisjs/vite/build_hook')],
+  },
+  experimental: {
+    mergeMultipartFieldsAndFiles: true,
+    shutdownInReverseOrder: true,
+  },
+})</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>// v7
+export default defineConfig({
+  // assetsBundler removed entirely
+  init: [
+    () => import('@adonisjs/core/initialize/http_server_provider'),
+    () => import('@adonisjs/lucid/initialize/index_entities'),   // if using Lucid
+    () => import('@adonisjs/inertia/initialize/index_pages'),    // if using Inertia
+  ],
+  hooks: {
+    buildStarting: [() => import('@adonisjs/vite/build_hook')],  // renamed from onBuildStarting
+  },
+  // experimental flags are now defaults — remove them
+})</code></pre>
+        </div>
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            The <code>experimental.mergeMultipartFieldsAndFiles</code> and
+            <code>experimental.shutdownInReverseOrder</code> flags are now default behaviour.
+            Remove them from <code>adonisrc.ts</code>.
+          </div>
+        </div>
+
+        <h3 id="test-glob">Test glob pattern</h3>
+        <p>The file glob syntax for test suites changed.</p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// v6
+files: ['tests/unit/**/*.spec(.ts|.js)']</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>// v7
+files: ['tests/unit/**/*.spec.{ts,js}']</code></pre>
+        </div>
+      </section>
+
+      <section id="ts-exec">
+        <h2>ts-node → ts-exec</h2>
+        <p>
+          <code>ts-node-maintained</code> is no longer used. Replace it with
+          <code>@poppinss/ts-exec</code> in <code>ace.js</code> (the CLI entry point).
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="javascript"><code>// v6 — ace.js
+import { register } from 'ts-node-maintained/register/esm'
+register()</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="javascript"><code>// v7 — ace.js
+import { register } from '@poppinss/ts-exec'
+register()</code></pre>
+        </div>
+        <p>
+          Remove <code>ts-node-maintained</code> from <code>devDependencies</code> and add
+          <code>@poppinss/ts-exec</code>. Also add <code>youch</code> as a dev dependency
+          for the new error page renderer.
+        </p>
+        <p>
+          Add the generated barrel file alias to <code>package.json</code> imports:
+        </p>
+        <pre data-lang="json"><code>{
+  "imports": {
+    "#generated/*": "./.adonisjs/server/*.js"
+  }
+}</code></pre>
+      </section>
+
+      <section id="encryption">
+        <h2>Encryption config</h2>
+        <p>
+          v7 uses a driver-based encryption system. <code>appKey</code> in <code>config/app.ts</code>
+          is now only used for HTTP cookies. A new <code>config/encryption.ts</code> is required for
+          all other encryption (tokens, signed URLs, etc.).
+        </p>
+        <pre data-lang="typescript"><code>// config/encryption.ts
+import env from '#start/env'
+import { defineConfig, drivers } from '@adonisjs/core/encryption'
+
+export default defineConfig({
+  default: 'aes256cbc',
+  drivers: {
+    aes256cbc: drivers.aes256cbc({
+      secret: env.get('APP_KEY'),
+    }),
+  },
+})</code></pre>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            If the app stored encrypted data with the v6 <code>appKey</code> (e.g. access tokens,
+            signed URLs), add a <code>legacy</code> driver entry alongside the new one so existing
+            data can still be decrypted. Consult the official upgrade guide for the legacy driver
+            configuration.
+          </div>
+        </div>
+      </section>
+
+      <section id="inertia-v4">
+        <h2>Inertia v4 changes</h2>
+        <p>
+          This is the highest-impact change in a v7 migration for apps using Inertia.
+          Several things must change together — middleware, config, file structure, and tsconfig.
+        </p>
+
+        <h3 id="inertia-middleware">Custom InertiaMiddleware</h3>
+        <p>
+          The direct use of <code>@adonisjs/inertia/inertia_middleware</code> is replaced by a
+          custom class extending <code>BaseInertiaMiddleware</code>. This is where shared props
+          (previously in <code>config/inertia.ts</code> as <code>sharedData</code>) now live.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// v6 — start/kernel.ts
+server.use([
+  () => import('@adonisjs/inertia/inertia_middleware'),
+])</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>// v7 — app/middleware/inertia_middleware.ts
+import { BaseInertiaMiddleware } from '@adonisjs/inertia'
+import type { HttpContext } from '@adonisjs/core/http'
+
+export default class InertiaMiddleware extends BaseInertiaMiddleware {
+  async share(ctx: HttpContext) {
+    return {
+      // shared props go here — replaces sharedData in config/inertia.ts
+    }
+  }
+}
+
+// v7 — start/kernel.ts
+server.use([
+  () => import('#middleware/inertia_middleware'),
+])</code></pre>
+        </div>
+
+        <h3 id="inertia-files">File structure</h3>
+        <p>The Inertia client entry point moves up one directory.</p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="text"><code>inertia/
+└── app/
+    ├── app.tsx        ← client entry point
+    └── ssr.tsx</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="text"><code>inertia/
+├── app.tsx            ← moved from inertia/app/app.tsx
+└── ssr.tsx</code></pre>
+        </div>
+        <p>Update all imports that reference <code>inertia/app/app.tsx</code> after the move.</p>
+
+        <h3 id="inertia-config">Config cleanup</h3>
+        <p>Several properties are removed from <code>config/inertia.ts</code> in v4.</p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// v6 — config/inertia.ts
+export default defineConfig({
+  rootView: 'inertia_layout',
+  sharedData: {
+    errors: (ctx) => ctx.session?.flashMessages.get('errors'),
+  },
+  ssr: {
+    enabled: false,
+    entrypoint: 'inertia/app/ssr.tsx',
+  },
+})</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>// v7 — config/inertia.ts
+export default defineConfig({
+  rootView: 'inertia_layout',
+  // sharedData removed → move to InertiaMiddleware.share()
+  // ssr.entrypoint removed
+  ssr: {
+    enabled: false,
+  },
+})</code></pre>
+        </div>
+        <p>
+          Also: <code>inertia.location()</code> is now <strong>synchronous</strong> — remove any
+          <code>await</code> before calls to it.
+        </p>
+
+        <h3 id="inertia-tsconfig">tsconfig.inertia.json</h3>
+        <p>
+          A new composite tsconfig is required at the webapp root to avoid circular references
+          between the server and client TypeScript compilation units.
+        </p>
+        <pre data-lang="json"><code>// tsconfig.inertia.json (at webapp root)
+{
+  "extends": "@adonisjs/tsconfig/tsconfig.client.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./inertia_compiled",
+    "rootDir": "./inertia"
+  },
+  "include": ["inertia/**/*"]
+}</code></pre>
+        <p>
+          The main <code>tsconfig.json</code> should reference it:
+        </p>
+        <pre data-lang="json"><code>{
+  "references": [{ "path": "./tsconfig.inertia.json" }]
+}</code></pre>
+      </section>
+
+      <section id="other-packages">
+        <h2>Other package changes</h2>
+
+        <h3>Auth v10 — <code>withAuthFinder</code> signature</h3>
+        <p>The hash manager is now passed as the first argument.</p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// v6
+const MyModel = compose(
+  BaseModel,
+  withAuthFinder(() => hash.use('scrypt'), {
+    uids: ['email'],
+    passwordColumnName: 'password',
+  })
+)</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>// v7 — hash manager first, options second (same shape, verify arg order)
+const MyModel = compose(
+  BaseModel,
+  withAuthFinder(hash, {
+    uids: ['email'],
+    passwordColumnName: 'password',
+    hashDriver: 'scrypt',
+  })
+)</code></pre>
+        </div>
+
+        <h3>Session v8 — flash key rename</h3>
+        <p>
+          The <code>errors</code> flash key is renamed to <code>inputErrors</code>.
+          Audit any templates or components reading flash messages.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>ctx.session.flashMessages.get('errors')</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>ctx.session.flashMessages.get('inputErrors')</code></pre>
+        </div>
+
+        <h3>Shield v9 — CSP implementation</h3>
+        <p>
+          <code>helmet-csp</code> is removed. CSP is now built-in. If <code>config/shield.ts</code>
+          configures CSP directives, verify the key names match the new built-in shape (typically
+          identical, but check the v9 release notes for any renamed directives).
+        </p>
+
+        <h3>Vite v5 — stale manifest</h3>
+        <p>
+          Vite v5 throws when the dev server is active but a production manifest exists on disk.
+          Run <code>node ace build --clean</code> before switching back to dev mode if a previous
+          build exists.
+        </p>
+
+        <h3>Lucid v22 — no breaking changes for existing models</h3>
+        <p>
+          Existing models using <code>@column()</code>, <code>@hasOne()</code>, etc. continue to
+          work without changes. v22 adds opt-in Schema classes (auto-generated from migrations)
+          and a new <code>Transformer</code> pattern — both additive.
+        </p>
+
+        <h3>HTTP type renames</h3>
+        <p>
+          <code>Request</code> and <code>Response</code> type imports from
+          <code>@adonisjs/core/http</code> are renamed to <code>HttpRequest</code> and
+          <code>HttpResponse</code>. Update any module augmentation or type-only imports.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>import type { Request } from '@adonisjs/core/http'</code></pre>
+        </div>
+        <div class="version v7" data-version="v7">
+          <pre data-lang="typescript"><code>import type { HttpRequest } from '@adonisjs/core/http'</code></pre>
+        </div>
+      </section>
+
+      <section id="new-conventions">
+        <h2>New conventions in v7</h2>
+        <ul>
+          <li>
+            <strong>Barrel files</strong> — auto-generated at <code>.adonisjs/server/</code>
+            via the <code>indexEntities()</code> init hook. These replace manual module
+            registration for models, validators, and services. Add <code>#generated/*</code>
+            to <code>package.json</code> imports.
+          </li>
+          <li>
+            <strong>Type-safe routes</strong> — <code>urlFor()</code> from
+            <code>@adonisjs/core/services/url_builder</code> replaces <code>router.makeUrl()</code>.
+            Enforces named route parameters at compile time.
+          </li>
+          <li>
+            <strong>Transformers</strong> — new <code>BaseTransformer</code> pattern for
+            serialising API responses. Replaces returning Lucid model instances directly.
+            Opt-in and not required for migration.
+          </li>
+          <li>
+            <strong>Auto-named routes</strong> — routes registered with a controller method
+            automatically receive a name (<code>controller.method</code>). Boot-time conflict
+            detection catches duplicate names.
+          </li>
+          <li>
+            <strong>Type-safe <code>inertia.render()</code></strong> — TypeScript enforces that
+            props passed to <code>inertia.render()</code> match what the React component declares.
+            Surfaced as compile errors, not runtime errors.
+          </li>
+          <li>
+            <strong>OpenTelemetry</strong> — zero-config via the new <code>@adonisjs/otel</code>
+            package. Optional.
+          </li>
+        </ul>
+      </section>
+
+      <section id="migration-guide">
+        <h2>Migration guide</h2>
+        <div class="callout callout--tip">
+          <span class="callout__icon">✦</span>
+          <div>
+            An official upgrade guide is available at
+            <strong>docs.adonisjs.com/v6-to-v7</strong>. A community automation tool,
+            <strong>adonis-v7-easy-migration</strong>, handles many of the mechanical renames
+            (hook names, utility replacements, Inertia file moves) and generates a diff report.
+            Run it first, then apply the manual steps.
+          </div>
+        </div>
+
+        <h3>Recommended order</h3>
+        <ol>
+          <li>Update Node.js to 24 LTS in all environments (local, CI, production).</li>
+          <li>Optionally run <code>adonis-v7-easy-migration</code> for automated renames.</li>
+          <li>Bump all <code>@adonisjs/*</code> and <code>@japa/*</code> packages.</li>
+          <li>Replace <code>ts-node-maintained</code> with <code>@poppinss/ts-exec</code> in <code>ace.js</code>.</li>
+          <li>Update <code>adonisrc.ts</code>: add <code>init</code> array, rename hooks, fix test glob, remove experimental flags.</li>
+          <li>Create <code>config/encryption.ts</code>.</li>
+          <li>Migrate Inertia: move entry file, create custom middleware, clean up config, add composite tsconfig.</li>
+          <li>Run <code>tsc --noEmit</code> — fix any type errors surfaced by stricter Inertia render types.</li>
+          <li>Run the full test suite.</li>
+        </ol>
+
+        <h3>Complexity summary</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Area</th><th>Impact</th><th>Applies to</th></tr></thead>
+            <tbody>
+              <tr><td>Node.js 24 requirement</td><td>HIGH — environment-wide</td><td>Both apps</td></tr>
+              <tr><td>Inertia v4 restructure</td><td>HIGH — multiple files</td><td>Webapp</td></tr>
+              <tr><td>Vite v7 + hook rename</td><td>MEDIUM</td><td>Webapp</td></tr>
+              <tr><td>adonisrc.ts hooks + init array</td><td>MEDIUM</td><td>Both apps</td></tr>
+              <tr><td>Encryption config</td><td>MEDIUM — new file</td><td>Both apps</td></tr>
+              <tr><td>ts-node → ts-exec</td><td>LOW — mechanical</td><td>Both apps</td></tr>
+              <tr><td>Auth withAuthFinder signature</td><td>LOW — verify arg order</td><td>Backend</td></tr>
+              <tr><td>Session flash key rename</td><td>LOW — audit templates</td><td>Webapp</td></tr>
+              <tr><td>Shield CSP config</td><td>LOW — verify shape</td><td>Webapp</td></tr>
+              <tr><td>HTTP type renames</td><td>LOW — 1–2 files</td><td>Backend</td></tr>
+              <tr><td>Lucid, Mail, Cors, Japa</td><td>LOW — version bumps</td><td>Both apps</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

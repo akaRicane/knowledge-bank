@@ -234,6 +234,36 @@ npm run test:webapp
 
 # Webapp tests directly (backend must already be running)
 cd webapp && node ace test</code></pre>
+
+        <h3 id="test-glob">Test file glob — version difference</h3>
+
+        <div class="version v6" data-version="v6">
+          <p><strong>v6</strong> — <code>adonisrc.ts</code> uses alternation syntax with parentheses:</p>
+          <pre data-lang="typescript"><code>tests: {
+  suites: [
+    {
+      name: 'functional',
+      files: ['tests/functional/**/*.spec(.ts|.js)'],
+    },
+  ],
+}</code></pre>
+        </div>
+
+        <div class="version v7" data-version="v7">
+          <p><strong>v7</strong> — glob must use brace expansion; the parenthesis form is no longer recognised:</p>
+          <pre data-lang="typescript"><code>tests: {
+  suites: [
+    {
+      name: 'functional',
+      files: ['tests/functional/**/*.spec.{ts,js}'],
+    },
+  ],
+}</code></pre>
+          <div class="callout callout--warn">
+            <span class="callout__icon">⚠</span>
+            <div>Using the v6 <code>(.ts|.js)</code> pattern in v7 silently matches no files — tests appear to pass with 0 tests run.</div>
+          </div>
+        </div>
       </section>
 
       <section id="factory-usage">

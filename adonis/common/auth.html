@@ -48,6 +48,7 @@
           <span class="tag">auth</span>
           <span class="tag">oat</span>
           <span class="version-badge">Last updated: 2026-05-14</span>
+          <span class="version-badge">v6 · v7</span>
         </div>
       </header>
 
@@ -202,6 +203,40 @@ guards: {
               <tr><td>maxMemory</td><td>32 MB</td></tr>
             </tbody>
           </table>
+        </div>
+
+        <h3>withAuthFinder mixin</h3>
+
+        <div class="version v6" data-version="v6">
+          <p><strong>v6</strong> — hash driver is resolved automatically from config; no explicit argument needed:</p>
+          <pre data-lang="typescript"><code>const AuthUser = compose(
+  BaseModel,
+  withAuthFinder(() => hash.use('scrypt'), {
+    uids: ['email'],
+    passwordColumnName: 'password',
+  })
+)</code></pre>
+        </div>
+
+        <div class="version v7" data-version="v7">
+          <p><strong>v7</strong> — the first argument accepts either a function <em>or</em> the hash manager instance directly. Options shape is unchanged:</p>
+          <pre data-lang="typescript"><code>import hash from '@adonisjs/core/services/hash'
+
+// Pass the hash manager directly (v7 shorthand)
+const AuthFinder = withAuthFinder(hash, {
+  uids: ['email'],
+  passwordColumnName: 'password',
+})
+
+// Passing a function still works too (v6 syntax remains valid)
+const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
+  uids: ['email'],
+  passwordColumnName: 'password',
+})</code></pre>
+          <div class="callout callout--note">
+            <span class="callout__icon">ℹ</span>
+            <div>Passing the hash manager directly uses the default driver from <code>config/hash.ts</code>. The active hash driver selection is unchanged from v6.</div>
+          </div>
         </div>
       </section>
 
