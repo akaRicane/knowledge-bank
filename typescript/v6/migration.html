@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeScript v6 Migration — Knowledge Bank</title>
+  <link rel="stylesheet" href="../../_shared/styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Knowledge Bank</a>
+      <span class="breadcrumb__sep">/</span>
+      <a href="../index.html">TypeScript</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__current">v6 Migration</span>
+    </nav>
+
+    <nav class="toc">
+      <div class="toc__title">On this page</div>
+      <ul class="toc__list">
+        <li class="toc__item"><a href="#overview">Overview</a></li>
+        <li class="toc__item"><a href="#new-defaults">New defaults</a></li>
+        <li class="toc__item toc__item--sub"><a href="#strict-default">strict: true by default</a></li>
+        <li class="toc__item toc__item--sub"><a href="#types-empty">types: [] by default</a></li>
+        <li class="toc__item toc__item--sub"><a href="#other-defaults">Other default changes</a></li>
+        <li class="toc__item"><a href="#removed-options">Removed options</a></li>
+        <li class="toc__item"><a href="#deprecated-options">Deprecated options</a></li>
+        <li class="toc__item"><a href="#catch-variables">catch variables: unknown</a></li>
+        <li class="toc__item"><a href="#new-features">New features</a></li>
+        <li class="toc__item"><a href="#migration-steps">Migration steps</a></li>
+        <li class="toc__item"><a href="#adonis-impact">Impact on AdonisJS projects</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="page-header">
+        <h1>TypeScript v6 — Migration guide</h1>
+        <p class="subtitle">
+          Breaking changes, removed compiler options, new defaults, and the catch variable
+          narrowing pattern. Migrating from TypeScript 5.x. Released March 23, 2026 —
+          the last JavaScript-based compiler before the Go rewrite in v7.
+        </p>
+        <div class="meta">
+          <span class="tag version-tag" style="background:#0d1a2e;color:#63b3ed;border-color:#63b3ed;">v6</span>
+          <span class="tag">compiler</span>
+          <span class="tag">breaking changes</span>
+          <span class="version-badge">Last updated: 2026-05-17</span>
+        </div>
+      </header>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>
+          TypeScript 6 is the most disruptive major release since the introduction of
+          <code>strict</code> mode. The two highest-impact changes are:
+        </p>
+        <ol>
+          <li><strong><code>strict: true</code> is now the default</strong> — projects without an explicit <code>strict</code> setting silently gain all strict checks.</li>
+          <li><strong><code>types: []</code> is now the default</strong> — ambient globals from <code>@types/node</code> and similar packages disappear unless explicitly listed.</li>
+        </ol>
+        <p>
+          Projects that already set <code>strict: true</code> and explicit <code>types</code>
+          (e.g. those using <code>@adonisjs/tsconfig</code>) are largely unaffected by these two changes.
+          The main practical impact on AdonisJS projects is the <code>catch</code> variable typing
+          described <a href="#catch-variables">below</a>.
+        </p>
+      </section>
+
+      <section id="new-defaults">
+        <h2>New defaults</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Option</th><th>TS 5 default</th><th>TS 6 default</th><th>Impact</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>strict</code></td><td><code>false</code></td><td><code>true</code></td><td>HIGH</td></tr>
+              <tr><td><code>types</code></td><td>all <code>@types/*</code></td><td><code>[]</code></td><td>HIGH</td></tr>
+              <tr><td><code>module</code></td><td><code>commonjs</code></td><td><code>esnext</code></td><td>MEDIUM</td></tr>
+              <tr><td><code>target</code></td><td><code>es5</code></td><td><code>es2025</code></td><td>MEDIUM</td></tr>
+              <tr><td><code>noUncheckedSideEffectImports</code></td><td><code>false</code></td><td><code>true</code></td><td>LOW</td></tr>
+              <tr><td><code>libReplacement</code></td><td><code>true</code></td><td><code>false</code></td><td>LOW</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--note">
+          <span class="callout__icon">ℹ</span>
+          <div>
+            New defaults only apply to options that are <strong>not explicitly set</strong>.
+            A <code>tsconfig.json</code> that already sets <code>"strict": true</code> or
+            <code>"module": "NodeNext"</code> is unaffected by the corresponding default change.
+          </div>
+        </div>
+
+        <h3 id="strict-default">strict: true by default</h3>
+        <p><code>strict: true</code> is shorthand for enabling all of the following flags simultaneously:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Flag</th><th>What it catches</th></tr></thead>
+            <tbody>
+              <tr><td><code>strictNullChecks</code></td><td><code>null</code> and <code>undefined</code> not assignable to other types — must be handled explicitly.</td></tr>
+              <tr><td><code>strictFunctionTypes</code></td><td>Function parameters checked contravariantly — prevents unsafe function assignments.</td></tr>
+              <tr><td><code>strictBindCallApply</code></td><td><code>.bind()</code>, <code>.call()</code>, <code>.apply()</code> are type-checked instead of returning <code>any</code>.</td></tr>
+              <tr><td><code>strictPropertyInitialization</code></td><td>Class properties must be initialised in the constructor or marked optional.</td></tr>
+              <tr><td><code>noImplicitAny</code></td><td>Variables inferred as <code>any</code> become errors — must be typed explicitly.</td></tr>
+              <tr><td><code>noImplicitThis</code></td><td><code>this</code> typed as <code>any</code> inside functions becomes an error.</td></tr>
+              <tr><td><code>useUnknownInCatchVariables</code></td><td><code>catch (error)</code> gives <code>error: unknown</code> instead of <code>error: any</code>.</td></tr>
+              <tr><td><code>alwaysStrict</code></td><td>Emits <code>"use strict"</code> in every output file.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="types-empty">types: [] by default</h3>
+        <p>
+          Previously, TypeScript auto-included all installed <code>@types/*</code> packages.
+          In v6, <code>types</code> defaults to an empty array — ambient globals from
+          <code>@types/node</code> (<code>process</code>, <code>Buffer</code>, <code>__dirname</code>, etc.)
+          and similar packages are no longer available unless listed explicitly.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="json"><code>// tsconfig.json — required in v6 to restore @types/node globals
+{
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}</code></pre>
+        </div>
+        <p>
+          Projects using <code>@adonisjs/tsconfig</code> already declare
+          <code>"types": ["@types/node"]</code> explicitly — no change needed.
+        </p>
+
+        <h3 id="other-defaults">Other default changes</h3>
+        <p>
+          <code>module: esnext</code> and <code>target: es2025</code> as defaults only matter
+          for projects that did not previously set these. AdonisJS projects use
+          <code>module: NodeNext</code> explicitly, which is unaffected.
+        </p>
+        <p>
+          <code>noUncheckedSideEffectImports: true</code> means that importing a module purely for
+          its side effects (e.g. <code>import './polyfill'</code>) now errors if TypeScript cannot
+          find a declaration file for it. Add a <code>// @ts-ignore</code> or a <code>.d.ts</code>
+          shim for known side-effect-only imports that have no types.
+        </p>
+      </section>
+
+      <section id="removed-options">
+        <h2>Removed options</h2>
+        <p>The following options are <strong>hard errors</strong> in v6 — using them stops compilation.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Removed option</th><th>Replacement</th></tr></thead>
+            <tbody>
+              <tr><td><code>--outFile</code></td><td>Use a bundler (Vite, esbuild, Rollup)</td></tr>
+              <tr><td><code>moduleResolution: classic</code>, <code>node</code>, <code>node10</code></td><td>Use <code>nodenext</code> or <code>bundler</code></td></tr>
+              <tr><td><code>module: amd</code>, <code>umd</code>, <code>system</code>, <code>none</code></td><td>Use <code>esnext</code>, <code>commonjs</code>, or <code>nodenext</code></td></tr>
+              <tr><td><code>target: es5</code></td><td>ES2015 is the new minimum target</td></tr>
+              <tr><td><code>--downlevelIteration</code></td><td>Only applied to ES5 — gone with it</td></tr>
+              <tr><td><code>/// &lt;reference no-default-lib&gt;</code></td><td>Use <code>--noLib</code> or <code>--libReplacement</code></td></tr>
+              <tr><td>Legacy <code>module Foo {}</code> namespace syntax</td><td>Use <code>namespace Foo {}</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="deprecated-options">
+        <h2>Deprecated options</h2>
+        <p>
+          These options are deprecated in v6 and will be hard errors in v7. Using them
+          produces a compiler error unless you add <code>"ignoreDeprecations": "6.0"</code>
+          to <code>compilerOptions</code> as a temporary migration shim.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Deprecated option</th><th>Migration path</th></tr></thead>
+            <tbody>
+              <tr><td><code>baseUrl</code> as a module lookup root</td><td>Fold into <code>paths</code> entries instead</td></tr>
+              <tr><td><code>esModuleInterop: false</code></td><td>Always enabled now — remove the explicit <code>false</code></td></tr>
+              <tr><td><code>allowSyntheticDefaultImports: false</code></td><td>Always enabled now — remove the explicit <code>false</code></td></tr>
+              <tr><td><code>alwaysStrict: false</code></td><td>Remove — covered by <code>strict: true</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre data-lang="json"><code>// temporary shim — suppresses deprecation errors while you migrate
+// will NOT carry forward to TypeScript v7
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0"
+  }
+}</code></pre>
+      </section>
+
+      <section id="catch-variables">
+        <h2>catch variables: unknown</h2>
+        <p>
+          The <code>useUnknownInCatchVariables</code> flag (part of <code>strict</code>) types
+          <code>catch (error)</code> as <code>unknown</code> instead of <code>any</code>. This
+          was already available in TS 4.4 but becomes universally active in v6 for any project
+          without an explicit <code>strict: false</code>.
+        </p>
+
+        <h3>The problem</h3>
+        <pre data-lang="typescript"><code>try {
+  await doSomething()
+} catch (error) {
+  // TS 5 (no strict): error is 'any' — accessing properties compiles fine
+  // TS 6 (strict: true): error is 'unknown' — accessing properties is an error
+  console.log(error.message) // TS18046: 'error' is of type 'unknown'
+}</code></pre>
+
+        <h3>The fix: instanceof narrowing</h3>
+        <p>
+          The idiomatic v6 pattern is to narrow with <code>instanceof</code> before accessing
+          properties. This both satisfies TypeScript and correctly surfaces unexpected errors
+          instead of swallowing them silently.
+        </p>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>import { errors } from '@vinejs/vine'
+
+try {
+  await validator.validate(data)
+} catch (error) {
+  if (!(error instanceof errors.E_VALIDATION_ERROR)) throw error
+  // TypeScript now knows error is E_VALIDATION_ERROR — properties are accessible
+  console.log(error.messages)
+}</code></pre>
+        </div>
+
+        <h3>Why not type assertions?</h3>
+        <div class="version v6" data-version="v6">
+          <pre data-lang="typescript"><code>// avoid: type assertion bypasses the type system
+} catch (error) {
+  const e = error as MyError   // compiles but unsafe if error is something else
+  console.log(e.message)
+}</code></pre>
+        </div>
+        <p>
+          <code>instanceof</code> narrowing is preferred because it is a runtime check, not just
+          a compile-time assertion. If the error is not what you expect, the <code>throw error</code>
+          branch re-surfaces it — the test suite will catch it instead of silently passing with
+          undefined values.
+        </p>
+
+        <h3>Handling unknown error shapes</h3>
+        <pre data-lang="typescript"><code>// when you don't know the error type
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  logger.error(message)
+}</code></pre>
+      </section>
+
+      <section id="new-features">
+        <h2>New features</h2>
+
+        <h3>es2025 target and lib</h3>
+        <p>New built-in types for features that reached stage 4 by 2025:</p>
+        <ul>
+          <li><code>Promise.try()</code></li>
+          <li>New <code>Set</code> methods: <code>union()</code>, <code>intersection()</code>, <code>difference()</code></li>
+          <li>New <code>Map</code> / <code>WeakMap</code> methods: <code>getOrInsert()</code>, <code>getOrInsertComputed()</code></li>
+          <li>Iterator helpers: <code>.map()</code>, <code>.filter()</code>, <code>.take()</code>, <code>.drop()</code></li>
+          <li><code>RegExp.escape()</code></li>
+          <li>Temporal API (stage 4)</li>
+        </ul>
+
+        <h3>Native #/ subpath imports</h3>
+        <p>
+          Node.js <code>package.json</code> <code>imports</code> field (subpath imports with
+          <code>#</code> prefix) is now resolved natively by the TypeScript compiler without
+          requiring explicit <code>paths</code> entries. Projects using <code>#models/*</code>,
+          <code>#services/*</code> etc. no longer need to mirror these in <code>tsconfig.json</code>
+          when using <code>moduleResolution: nodenext</code>.
+        </p>
+
+        <h3>DOM lib consolidation</h3>
+        <p>
+          <code>dom.iterable</code> and <code>dom.asynciterable</code> are now bundled into
+          the base <code>dom</code> lib. Projects that explicitly listed these can remove them.
+        </p>
+
+        <h3>--stableTypeOrdering</h3>
+        <p>
+          A diagnostic flag that forces the TS 6 compiler to emit types in the same deterministic
+          order as the upcoming Go-based TS 7 compiler. Useful for validating that a migration
+          from TS 6 to TS 7 will produce equivalent output.
+        </p>
+      </section>
+
+      <section id="migration-steps">
+        <h2>Migration steps</h2>
+
+        <h3>Recommended order</h3>
+        <ol>
+          <li>
+            Bump <code>typescript</code> in <code>devDependencies</code>:
+            <pre data-lang="bash"><code>npm install --save-dev typescript@latest</code></pre>
+          </li>
+          <li>
+            Run <code>tsc --noEmit</code> and collect all errors. The most common categories:
+            <ul>
+              <li><code>TS18046</code> — <code>catch (error)</code> is <code>unknown</code> → fix with <code>instanceof</code> narrowing</li>
+              <li><code>TS2345</code> / <code>TS2322</code> — strict null checks surfacing new issues</li>
+              <li><code>TS2307</code> — <code>@types/*</code> globals missing → add to <code>types</code></li>
+              <li><code>TS5023</code> — removed compiler option in use → remove it</li>
+            </ul>
+          </li>
+          <li>
+            If there are many errors, add <code>"ignoreDeprecations": "6.0"</code> temporarily
+            and fix errors incrementally. Remove the shim before merging.
+          </li>
+          <li>Fix <code>catch</code> blocks using <code>instanceof</code> narrowing (see <a href="#catch-variables">above</a>).</li>
+          <li>Run the full test suite to confirm runtime behaviour is unchanged.</li>
+        </ol>
+
+        <h3>Checking for removed options</h3>
+        <pre data-lang="bash"><code># tsc lists removed/unknown options as errors
+npx tsc --noEmit 2>&1 | grep "TS5023\|TS5024\|TS5025"</code></pre>
+      </section>
+
+      <section id="adonis-impact">
+        <h2>Impact on AdonisJS projects</h2>
+        <p>
+          Projects using <code>@adonisjs/tsconfig</code> are largely shielded from the v6 default
+          changes because the shared config already sets all critical options explicitly:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Option</th><th>@adonisjs/tsconfig value</th><th>v6 default</th><th>Impact</th></tr></thead>
+            <tbody>
+              <tr><td><code>strict</code></td><td>individual flags set</td><td><code>true</code></td><td>none</td></tr>
+              <tr><td><code>module</code></td><td><code>NodeNext</code></td><td><code>esnext</code></td><td>none</td></tr>
+              <tr><td><code>target</code></td><td><code>ESNext</code></td><td><code>es2025</code></td><td>none</td></tr>
+              <tr><td><code>types</code></td><td><code>["@types/node"]</code></td><td><code>[]</code></td><td>none</td></tr>
+              <tr><td><code>esModuleInterop</code></td><td><code>true</code></td><td>always on</td><td>none</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout--warn">
+          <span class="callout__icon">⚠</span>
+          <div>
+            <strong>The one real-world impact: <code>catch</code> variables.</strong>
+            AdonisJS test suites commonly use <code>assert.instanceOf(error, SomeClass)</code>
+            inside <code>catch</code> blocks and then access properties on <code>error</code> directly.
+            This fails in v6 because <code>error</code> is <code>unknown</code> and
+            <code>assert.instanceOf()</code> does not narrow the type at the TypeScript level.
+          </div>
+        </div>
+        <pre data-lang="typescript"><code>// before — compiles in TS 5, fails in TS 6
+} catch (error) {
+  assert.instanceOf(error, errors.E_VALIDATION_ERROR)
+  assert.equal(error.messages[0].field, 'email') // TS18046: 'error' is of type 'unknown'
+}
+
+// after — correct in TS 6
+} catch (error) {
+  if (!(error instanceof errors.E_VALIDATION_ERROR)) throw error
+  assert.equal(error.messages[0].field, 'email')
+}</code></pre>
+        <p>
+          The <code>assert.instanceOf</code> call is removed because the <code>instanceof</code>
+          guard already makes it redundant — if the error is not the expected type, the test will
+          fail at the <code>throw</code> line with the original unexpected error, which is more
+          informative than an assertion failure.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
