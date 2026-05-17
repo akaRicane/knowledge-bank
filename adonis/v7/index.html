@@ -27,6 +27,7 @@
         <li class="toc__item"><a href="#ts-exec">ts-node → ts-exec</a></li>
         <li class="toc__item"><a href="#encryption">Encryption config</a></li>
         <li class="toc__item"><a href="#inertia-v4">Inertia v4 changes</a></li>
+        <li class="toc__item toc__item--sub"><a href="#inertia-tuyau">Tuyau peer dependency</a></li>
         <li class="toc__item toc__item--sub"><a href="#inertia-middleware">Custom middleware</a></li>
         <li class="toc__item toc__item--sub"><a href="#inertia-files">File structure</a></li>
         <li class="toc__item toc__item--sub"><a href="#inertia-config">Config cleanup</a></li>
@@ -219,6 +220,45 @@ export default defineConfig({
           This is the highest-impact change in a v7 migration for apps using Inertia.
           Several things must change together — middleware, config, file structure, and tsconfig.
         </p>
+
+        <h3 id="inertia-tuyau">Tuyau peer dependency (new in v4)</h3>
+        <p>
+          <code>@adonisjs/inertia v4</code> introduces <code>@tuyau/core</code> as a
+          <strong>peer dependency</strong>. The React exports (<code>Link</code>,
+          <code>useRouter</code>, <code>useTuyau</code>, <code>TuyauProvider</code>)
+          all depend on a Tuyau client being provided via context. Without it, any component
+          that imports from <code>@adonisjs/inertia/react</code> throws at runtime:
+          <em>"You must wrap your app in a TuyauProvider"</em>.
+        </p>
+        <p>
+          Install the package and wire the provider in the Inertia app entry point:
+        </p>
+        <pre data-lang="bash"><code>npm install @tuyau/core</code></pre>
+        <pre data-lang="typescript"><code>// inertia/app/app.tsx
+import { TuyauProvider } from '@adonisjs/inertia/react'
+import { client } from '~/client'   // see Tuyau doc for client creation
+
+setup({ el, App, props }) {
+  createRoot(el).render(
+    &lt;TuyauProvider client={client}&gt;
+      &lt;App {...props} /&gt;
+    &lt;/TuyauProvider&gt;
+  )
+}</code></pre>
+        <p>
+          See <a href="../common/tuyau.html">Tuyau</a> for the full setup:
+          <code>generateRegistry()</code> hook, alias configuration, client creation,
+          typed <code>Link</code>, and API call patterns.
+        </p>
+        <div class="callout callout--tip">
+          <span class="callout__icon">✦</span>
+          <div>
+            Short-term workaround if deferring Tuyau setup: import <code>Link</code> from
+            <code>@inertiajs/react</code> instead of <code>@adonisjs/inertia/react</code>.
+            Behaviorally identical for <code>href</code>-based usage; no provider required.
+            Revert to <code>@adonisjs/inertia/react</code> once the provider is wired.
+          </div>
+        </div>
 
         <h3 id="inertia-middleware">Custom InertiaMiddleware</h3>
         <p>
@@ -426,6 +466,13 @@ const MyModel = compose(
           <li>
             <strong>OpenTelemetry</strong> — zero-config via the new <code>@adonisjs/otel</code>
             package. Optional.
+          </li>
+          <li>
+            <strong>Tuyau</strong> — <code>@tuyau/core</code> is now a peer dependency of
+            <code>@adonisjs/inertia v4</code>. Generates a typed route registry at build time,
+            enabling type-safe navigation (<code>Link</code>, <code>useRouter</code>) and
+            type-safe API calls (<code>client.api.route.name()</code>) from the React frontend.
+            See <a href="../common/tuyau.html">Tuyau</a>.
           </li>
         </ul>
       </section>
